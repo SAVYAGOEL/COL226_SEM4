@@ -2,11 +2,13 @@
    Enter your program here and send it to the toplevel using the "Eval code"
    button or [Ctrl-e]. *)
 
+exception DimensionError of string
+exception ZeroVectorError of string
 
+module Vector = struct
 
    type vector = float list
-   exception DimensionError of string
-   exception ZeroVectorError of string
+   
                
                
    let create n x : vector =
@@ -29,7 +31,9 @@
                
    let rec is_zero (v:vector) = match v with
        [] -> true
-     | x::xs -> if x == 0. then is_zero xs
+     | x::xs -> if x = 0. then is_zero xs  
+      (* note that in ocaml == and = mean different things, == checks whether the two objects are the same thing in the
+      memory or not, whereas = performs a structural comparison where it checks whether the contents of the 2 are same or not *)
          else false 
    ;;
    
@@ -92,289 +96,279 @@
        else raise (DimensionError "Dimension of vector must be > 0")
    ;;       
              
+  end;;
      
-   (* Testing Vector Module *)
-   Printf.printf "-------- TESTING VECTOR MODULE --------";;
-   
-   (* Test cases for create *)
-   Printf.printf "------ create function test cases ------\n";;
-   let v1 = create 4 3.2;; 
-   Printf.printf "v1: ";;
-   List.iter (Printf.printf "%0.2f ") v1;;
-   print_newline ();;
-   
-   let v2 = create 3 (-5.0);; 
-   Printf.printf "v2: ";;
-   List.iter (Printf.printf "%0.2f ") v2;;
-   print_newline ();;
-   
-   let v3 = create 1 0.0;; 
-   Printf.printf "v3: ";;
-   List.iter (Printf.printf "%0.2f ") v3;;
-   print_newline ();;
-   
-   
-   
-   Printf.printf "case when n = 0 \n";;
-   try 
-     let v4 = create 0 2.0 in
-     List.iter (Printf.printf "%0.2f ") v4
-   with 
-   | DimensionError s -> Printf.printf "DimensionError: %s\n" s;;
-   
-   print_newline ();;
-   
-   
-   (* Test cases for dim *)
-   Printf.printf "------ dim function test cases ------\n";;
-   let d1 = dim v1;; 
-   Printf.printf "dim v1: %d\n" d1;;
-   
-   let d2 = dim v2;; 
-   Printf.printf "dim v2: %d\n" d2;;
-   
-   let d3 = dim v3;; 
-   Printf.printf "dim v3: %d\n" d3;;
-   
-   (* Test cases for is_zero *)
-   Printf.printf "------ is_zero function test cases ------\n";;
-   let v5 = create 3 0.0;; 
-   let z1 = is_zero v5;;
-   Printf.printf "is_zero v5: %b\n" z1;;
-   
-   let z2 = is_zero v1;;
-   Printf.printf "is_zero v1: %b\n" z2;;
-   
-   
-   (* Test cases for unit *)
-   Printf.printf "------ unit function test cases ------\n";;
-   let u1 = unit 4 2;; 
-   Printf.printf "u1: ";;
-   List.iter (Printf.printf "%0.2f ") u1;;
-   print_newline ();;
-   
-   let u2 = unit 5 5;; 
-   Printf.printf "u2: ";;
-   List.iter (Printf.printf "%0.2f ") u2;;
-   print_newline ();; 
-   
-   
-   Printf.printf "case j = 0 ( DimensionError ) \n";;
-   try 
-     let u3 = unit 3 0 in
-     List.iter (Printf.printf "%0.2f ") u3
-   with 
-   | DimensionError s -> Printf.printf "DimensionError: %s\n" s;;
-   
-   print_newline ();;
-   
-   
-   (* Test cases for scale *)
-   Printf.printf "------ scale function test cases ------\n";;
-   let scaled_v1 = scale 2.0 v1;; 
-   Printf.printf "scaled_v1: ";;
-   List.iter (Printf.printf "%0.2f ") scaled_v1;;
-   print_newline ();;
-   
-   let scaled_zero = scale 0.0 v2;; 
-   Printf.printf "scaled_zero: ";;
-   List.iter (Printf.printf "%0.2f ") scaled_zero;;
-   print_newline ();;
-   
-   let scaled_inv = scale (-1.0) v1;;
-   Printf.printf "scaled_inv: ";;
-   List.iter (Printf.printf "%0.2f ") scaled_inv;;
-   print_newline ();;
-   
-   (* Test cases for addv *)
-   Printf.printf "------ addv function test cases ------\n";;
-   let v6 = create 4 1.0;;
-   let add_v1_v6 = addv v1 v6;; 
-   Printf.printf "v1+v6: ";;
-   List.iter (Printf.printf "%0.2f ") add_v1_v6;;
-   print_newline ();;
-   
-   let add_v1_u1 = addv v1 u1;;
-   Printf.printf "v1+u1: ";;
-   List.iter (Printf.printf "%0.2f ") add_v1_u1;;
-   print_newline ();;
-   
-   
-   let v7 = create 2 1.0;; 
-   
-   Printf.printf "case when dimensions of the two vectors dont match\n";;
-   try 
-     let add_v1_v7 = addv v1 v7 in
-     List.iter (Printf.printf "%0.2f ") add_v1_v7
-   with 
-   | DimensionError s -> Printf.printf "DimensionError: %s\n" s;;
-   
-   print_newline ();;
-   
-   (* Test cases for dot_prod *)
-   Printf.printf "------ dot_prod function test cases ------\n";;
-   let dp_v1_v6 = dot_prod v1 v6;; 
-   Printf.printf "v1.v6: %0.2f\n" dp_v1_v6;;
-   
-   let dp_v1_u1 = dot_prod v1 u1;; 
-   Printf.printf "v1.u1 v1 u1: %0.2f\n" dp_v1_u1;;
-   
-   
-   let v8 = create 2 1.0;; 
-   Printf.printf "case when dimensions of the two vectors dont match\n";;
-   try 
-     let dp_v1_v8 = dot_prod v1 v8 in
-     Printf.printf "%0.2f " dp_v1_v8
-   with 
-   | DimensionError s -> Printf.printf "DimensionError: %s\n" s;;
-   
-   print_newline ();;
-   
-   
-   (* Test cases for inv *)
-   Printf.printf "------ inv function test cases ------\n";;
-   let inv_v1 = inv v1;; 
-   Printf.printf "inv v1: ";;
-   List.iter (Printf.printf "%0.2f ") inv_v1;;
-   print_newline ();;
-   
-   let inv_v5 = inv v5;;
-   Printf.printf "inv v5: ";;
-   List.iter (Printf.printf "%0.2f ") inv_v5;;
-   print_newline ();;
-   
-   (* Test cases for length *)
-   Printf.printf "------ length function test cases ------\n";;
-   let len_v1 = length v1;; 
-   Printf.printf "length v1: %0.2f\n" len_v1;;
-   
-   let len_u1 = length u1;; 
-   Printf.printf "length u1: %0.2f\n" len_u1;;
-   
-   let len_v5 = length v5;; 
-   Printf.printf "length v5: %0.2f\n" len_v5;;
-   
-   (* Test cases for angle *)
-   Printf.printf "------ angle function test cases ------\n";;
-   
-   Printf.printf "case of parallel vectors\n";;
-   let angle_v1_v6 = angle v1 v6;; 
-   Printf.printf "angle v1 v6: %0.2f\n" angle_v1_v6;;
-   
-   let v9 = create 4 (-3.2);;
-   Printf.printf "case of anti-parallel vectors\n";;
-   let angle_v1_v9 = angle v1 v9;; 
-   Printf.printf "angle v1 v9: %0.2f\n" angle_v1_v9;;
-   
-   let v10 = unit 2 1;;
-   let v11 = unit 2 2;;
-   Printf.printf "case of perpendicular vectors\n";;
-   let angle_v10_v11 = angle v10 v11;; 
-   Printf.printf "angle v10 v11: %0.2f\n" angle_v10_v11;;
-   
-   Printf.printf "case of calculating angle with 0 vector\n";;
-   try 
-     let angle_v5_v1 = angle v5 v1 in
-     Printf.printf "%0.2f " angle_v5_v1
-   with 
-   | DimensionError s -> Printf.printf "DimensionError: %s\n" s;;
-   
-   print_newline ();;
-   
-   
-   (* Miscellaneous test cases verifying the mathematical properties stated in the assignment *)
-   
-   Printf.printf "------ miscellaneous tests (mathematical properties) ------ \n";;
-   
-   (* Checking commutativity: u + v = v + u *)
-   Printf.printf "------ checking commutativity ------ \n";;
-   let u = create 3 1.0;;
-   let v = create 3 2.0;;
-   let comm1 = addv u v;;
-   let comm2 = addv v u;;
-   Printf.printf "u + v = ";;
-   List.iter (Printf.printf "%0.2f ") comm1;;
-   print_newline ();;
-   Printf.printf "v + u = ";;
-   List.iter (Printf.printf "%0.2f ") comm2;;
-   print_newline ();;
-   
-   (* Checking associativity: u + (v + w) = (u + v) + w *)
-   Printf.printf "------ checking associativity ------ \n";;
-   let w = create 3 3.0;;
-   let assoc1 = addv u (addv v w);;
-   let assoc2 = addv (addv u v) w;;
-   Printf.printf "u + (v + w) = ";;
-   List.iter (Printf.printf "%0.2f ") assoc1;;
-   print_newline ();;
-   Printf.printf "(u + v) + w = ";;
-   List.iter (Printf.printf "%0.2f ") assoc2;;
-   print_newline ();;
-   
-   (* Checking identity of addition: v + O = v *)
-   Printf.printf "------ checking identity of addition ------ \n";;
-   let zero_vec = create 3 0.0;;
-   let identity_add = addv v zero_vec;;
-   Printf.printf "v + O = ";;
-   List.iter (Printf.printf "%0.2f ") identity_add;;
-   print_newline ();;
-   
-   (* Checking identity scalar: 1.v = v *)
-   Printf.printf "------ checking identity scalar ------ \n";;
-   let identity_scalar = scale 1.0 v;;
-   Printf.printf "1.v = ";;
-   List.iter (Printf.printf "%0.2f ") identity_scalar;;
-   print_newline ();;
-   
-   (* Checking annihilator scalar: 0.v = O *)
-   Printf.printf "------ checking annihilator scalar ------ \n";;
-   let annihilator_scalar = scale 0.0 v;;
-   Printf.printf "0.v = ";;
-   List.iter (Printf.printf "%0.2f ") annihilator_scalar;;
-   print_newline ();;
-   
-   (* Checking additive inverse: v + (-v) = O *)
-   Printf.printf "------ checking additive inverse ------ \n";;
-   let negative_v = scale (-1.0) v;;
-   let additive_inverse = addv v negative_v;;
-   Printf.printf "v + (-v) = ";;
-   List.iter (Printf.printf "%0.2f ") additive_inverse;;
-   print_newline ();;
-   
-   (* Checking scalar product combination: b.(c.v) = (b.c).v *)
-   Printf.printf "------ checking scalar product combination ------ \n";;
-   let b = 2.0;;
-   let c = 3.0;;
-   let scalar_comb1 = scale b (scale c v);;
-   let scalar_comb2 = scale (b *. c) v;;
-   Printf.printf "b.(c.v) = ";;
-   List.iter (Printf.printf "%0.2f ") scalar_comb1;;
-   print_newline ();;
-   Printf.printf "(b.c).v = ";;
-   List.iter (Printf.printf "%0.2f ") scalar_comb2;;
-   print_newline ();;
-   
-   (* Checking scalar sum-product distribution: (b + c).v = b.v + c.v *)
-   Printf.printf "------ checking scalar sum-product distribution ------ \n";;
-   let scalar_sum1 = scale (b +. c) v;;
-   let scalar_sum2 = addv (scale b v) (scale c v);;
-   Printf.printf "(b + c).v = ";;
-   List.iter (Printf.printf "%0.2f ") scalar_sum1;;
-   print_newline ();;
-   Printf.printf "b.v + c.v = ";;
-   List.iter (Printf.printf "%0.2f ") scalar_sum2;;
-   print_newline ();;
-   
-   (* Checking scalar distribution over vector sums: b.(u + v) = b.u + b.v *)
-   Printf.printf "------ checking scalar distribution over vector sums ------ \n";;
-   let scalar_dist1 = scale b (addv u v);;
-   let scalar_dist2 = addv (scale b u) (scale b v);;
-   Printf.printf "b.(u + v) = ";;
-   List.iter (Printf.printf "%0.2f ") scalar_dist1;;
-   print_newline ();;
-   Printf.printf "b.u + b.v = ";;
-   List.iter (Printf.printf "%0.2f ") scalar_dist2;;
-   print_newline ();;
+  (* Printf.printf "-------- TESTING VECTOR MODULE --------";;
+  
+  (* Test cases for create *)
+  Printf.printf "------ create function test cases ------\n";;
+  let v1 = Vector.create 4 3.2;; 
+  Printf.printf "v1: ";;
+  List.iter (Printf.printf "%0.2f ") v1;;
+  print_newline ();;
+  
+  let v2 = Vector.create 3 (-5.0);; 
+  Printf.printf "v2: ";;
+  List.iter (Printf.printf "%0.2f ") v2;;
+  print_newline ();;
+  
+  let v3 = Vector.create 1 0.0;; 
+  Printf.printf "v3: ";;
+  List.iter (Printf.printf "%0.2f ") v3;;
+  print_newline ();;
+  
+  Printf.printf "case when n = 0 \n";;
+  try 
+    let v4 = Vector.create 0 2.0 in
+    List.iter (Printf.printf "%0.2f ") v4
+  with 
+  | DimensionError s -> Printf.printf "DimensionError: %s\n" s;;
+  
+  print_newline ();;
+  
+  (* Test cases for dim *)
+  Printf.printf "------ dim function test cases ------\n";;
+  let d1 = Vector.dim v1;; 
+  Printf.printf "dim v1: %d\n" d1;;
+  
+  let d2 = Vector.dim v2;; 
+  Printf.printf "dim v2: %d\n" d2;;
+  
+  let d3 = Vector.dim v3;; 
+  Printf.printf "dim v3: %d\n" d3;;
+  
+  (* Test cases for is_zero *)
+  Printf.printf "------ is_zero function test cases ------\n";;
+  let v5 = Vector.create 3 0.0;; 
+  let z1 = Vector.is_zero v5;;
+  Printf.printf "is_zero v5: %b\n" z1;;
+  
+  let z2 = Vector.is_zero v1;;
+  Printf.printf "is_zero v1: %b\n" z2;;
+  
+  (* Test cases for unit *)
+  Printf.printf "------ unit function test cases ------\n";;
+  let u1 = Vector.unit 4 2;; 
+  Printf.printf "u1: ";;
+  List.iter (Printf.printf "%0.2f ") u1;;
+  print_newline ();;
+  
+  let u2 = Vector.unit 5 5;; 
+  Printf.printf "u2: ";;
+  List.iter (Printf.printf "%0.2f ") u2;;
+  print_newline ();; 
+  
+  Printf.printf "case j = 0 ( DimensionError ) \n";;
+  try 
+    let u3 = Vector.unit 3 0 in
+    List.iter (Printf.printf "%0.2f ") u3
+  with 
+  | DimensionError s -> Printf.printf "DimensionError: %s\n" s;;
+  
+  print_newline ();;
+  
+  (* Test cases for scale *)
+  Printf.printf "------ scale function test cases ------\n";;
+  let scaled_v1 = Vector.scale 2.0 v1;; 
+  Printf.printf "scaled_v1: ";;
+  List.iter (Printf.printf "%0.2f ") scaled_v1;;
+  print_newline ();;
+  
+  let scaled_zero = Vector.scale 0.0 v2;; 
+  Printf.printf "scaled_zero: ";;
+  List.iter (Printf.printf "%0.2f ") scaled_zero;;
+  print_newline ();;
+  
+  let scaled_inv = Vector.scale (-1.0) v1;;
+  Printf.printf "scaled_inv: ";;
+  List.iter (Printf.printf "%0.2f ") scaled_inv;;
+  print_newline ();;
+  
+  (* Test cases for addv *)
+  Printf.printf "------ addv function test cases ------\n";;
+  let v6 = Vector.create 4 1.0;;
+  let add_v1_v6 = Vector.addv v1 v6;; 
+  Printf.printf "v1+v6: ";;
+  List.iter (Printf.printf "%0.2f ") add_v1_v6;;
+  print_newline ();;
+  
+  let add_v1_u1 = Vector.addv v1 u1;;
+  Printf.printf "v1+u1: ";;
+  List.iter (Printf.printf "%0.2f ") add_v1_u1;;
+  print_newline ();;
+  
+  let v7 = Vector.create 2 1.0;; 
+  
+  Printf.printf "case when dimensions of the two vectors dont match\n";;
+  try 
+    let add_v1_v7 = Vector.addv v1 v7 in
+    List.iter (Printf.printf "%0.2f ") add_v1_v7
+  with 
+  | DimensionError s -> Printf.printf "DimensionError: %s\n" s;;
+  
+  print_newline ();;
+  
+  (* Test cases for dot_prod *)
+  Printf.printf "------ dot_prod function test cases ------\n";;
+  let dp_v1_v6 = Vector.dot_prod v1 v6;; 
+  Printf.printf "v1.v6: %0.2f\n" dp_v1_v6;;
+  
+  let dp_v1_u1 = Vector.dot_prod v1 u1;; 
+  Printf.printf "v1.u1 v1 u1: %0.2f\n" dp_v1_u1;;
+  
+  let v8 = Vector.create 2 1.0;; 
+  Printf.printf "case when dimensions of the two vectors dont match\n";;
+  try 
+    let dp_v1_v8 = Vector.dot_prod v1 v8 in
+    Printf.printf "%0.2f " dp_v1_v8
+  with 
+  | DimensionError s -> Printf.printf "DimensionError: %s\n" s;;
+  
+  print_newline ();;
+  
+  (* Test cases for inv *)
+  Printf.printf "------ inv function test cases ------\n";;
+  let inv_v1 = Vector.inv v1;; 
+  Printf.printf "inv v1: ";;
+  List.iter (Printf.printf "%0.2f ") inv_v1;;
+  print_newline ();;
+  
+  let inv_v5 = Vector.inv v5;;
+  Printf.printf "inv v5: ";;
+  List.iter (Printf.printf "%0.2f ") inv_v5;;
+  print_newline ();;
+  
+  (* Test cases for length *)
+  Printf.printf "------ length function test cases ------\n";;
+  let len_v1 = Vector.length v1;; 
+  Printf.printf "length v1: %0.2f\n" len_v1;;
+  
+  let len_u1 = Vector.length u1;; 
+  Printf.printf "length u1: %0.2f\n" len_u1;;
+  
+  let len_v5 = Vector.length v5;; 
+  Printf.printf "length v5: %0.2f\n" len_v5;;
+  
+  (* Test cases for angle *)
+  Printf.printf "------ angle function test cases ------\n";;
+  
+  Printf.printf "case of parallel vectors\n";;
+  let angle_v1_v6 = Vector.angle v1 v6;; 
+  Printf.printf "angle v1 v6: %0.2f\n" angle_v1_v6;;
+  
+  let v9 = Vector.create 4 (-3.2);;
+  Printf.printf "case of anti-parallel vectors\n";;
+  let angle_v1_v9 = Vector.angle v1 v9;; 
+  Printf.printf "angle v1 v9: %0.2f\n" angle_v1_v9;;
+  
+  let v10 = Vector.unit 2 1;;
+  let v11 = Vector.unit 2 2;;
+  Printf.printf "case of perpendicular vectors\n";;
+  let angle_v10_v11 = Vector.angle v10 v11;; 
+  Printf.printf "angle v10 v11: %0.2f\n" angle_v10_v11;;
+  
+  Printf.printf "case of calculating angle with 0 vector\n";;
+  try 
+    let angle_v5_v1 = Vector.angle v5 v1 in
+    Printf.printf "%0.2f " angle_v5_v1
+  with 
+  | DimensionError s -> Printf.printf "DimensionError: %s\n" s;;
+  
+  print_newline ();;
+  
+  (* Miscellaneous test cases verifying the mathematical properties stated in the assignment *)
+  
+  Printf.printf "------ miscellaneous tests (mathematical properties) ------ \n";;
+  
+  (* Checking commutativity: u + v = v + u *)
+  Printf.printf "------ checking commutativity ------ \n";;
+  let u = Vector.create 3 1.0;;
+  let v = Vector.create 3 2.0;;
+  let comm1 = Vector.addv u v;;
+  let comm2 = Vector.addv v u;;
+  Printf.printf "u + v = ";;
+  List.iter (Printf.printf "%0.2f ") comm1;;
+  print_newline ();;
+  Printf.printf "v + u = ";;
+  List.iter (Printf.printf "%0.2f ") comm2;;
+  print_newline ();;
+  
+  (* Checking associativity: u + (v + w) = (u + v) + w *)
+  Printf.printf "------ checking associativity ------ \n";;
+  let w = Vector.create 3 3.0;;
+  let assoc1 = Vector.addv u (Vector.addv v w);;
+  let assoc2 = Vector.addv (Vector.addv u v) w;;
+  Printf.printf "u + (v + w) = ";;
+  List.iter (Printf.printf "%0.2f ") assoc1;;
+  print_newline ();;
+  Printf.printf "(u + v) + w = ";;
+  List.iter (Printf.printf "%0.2f ") assoc2;;
+  print_newline ();;
+  
+  (* Checking identity of addition: v + O = v *)
+  Printf.printf "------ checking identity of addition ------ \n";;
+  let zero_vec = Vector.create 3 0.0;;
+  let identity_add = Vector.addv v zero_vec;;
+  Printf.printf "v + O = ";;
+  List.iter (Printf.printf "%0.2f ") identity_add;;
+  print_newline ();;
+  
+  (* Checking identity scalar: 1.v = v *)
+  Printf.printf "------ checking identity scalar ------ \n";;
+  let identity_scalar = Vector.scale 1.0 v;;
+  Printf.printf "1.v = ";;
+  List.iter (Printf.printf "%0.2f ") identity_scalar;;
+  print_newline ();;
+  
+  (* Checking annihilator scalar: 0.v = O *)
+  Printf.printf "------ checking annihilator scalar ------ \n";;
+  let annihilator_scalar = Vector.scale 0.0 v;;
+  Printf.printf "0.v = ";;
+  List.iter (Printf.printf "%0.2f ") annihilator_scalar;;
+  print_newline ();;
+  
+  (* Checking additive inverse: v + (-v) = O *)
+  Printf.printf "------ checking additive inverse ------ \n";;
+  let negative_v = Vector.scale (-1.0) v;;
+  let additive_inverse = Vector.addv v negative_v;;
+  Printf.printf "v + (-v) = ";;
+  List.iter (Printf.printf "%0.2f ") additive_inverse;;
+  print_newline ();;
+  
+  (* Checking scalar product combination: b.(c.v) = (b.c).v *)
+  Printf.printf "------ checking scalar product combination ------ \n";;
+  let b = 2.0;;
+  let c = 3.0;;
+  let scalar_comb1 = Vector.scale b (Vector.scale c v);;
+  let scalar_comb2 = Vector.scale (b *. c) v;;
+  Printf.printf "b.(c.v) = ";;
+  List.iter (Printf.printf "%0.2f ") scalar_comb1;;
+  print_newline ();;
+  Printf.printf "(b.c).v = ";;
+  List.iter (Printf.printf "%0.2f ") scalar_comb2;;
+  print_newline ();;
+  
+  (* Checking scalar sum-product distribution: (b + c).v = b.v + c.v *)
+  Printf.printf "------ checking scalar sum-product distribution ------ \n";;
+  let scalar_sum1 = Vector.scale (b +. c) v;;
+  let scalar_sum2 = Vector.addv (Vector.scale b v) (Vector.scale c v);;
+  Printf.printf "(b + c).v = ";;
+  List.iter (Printf.printf "%0.2f ") scalar_sum1;;
+  print_newline ();;
+  Printf.printf "b.v + c.v = ";;
+  List.iter (Printf.printf "%0.2f ") scalar_sum2;;
+  print_newline ();;
+  
+  (* Checking scalar distribution over vector sums: b.(u + v) = b.u + b.v *)
+  Printf.printf "------ checking scalar distribution over vector sums ------ \n";;
+  let scalar_dist1 = Vector.scale b (Vector.addv u v);;
+  let scalar_dist2 = Vector.addv (Vector.scale b u) (Vector.scale b v);;
+  Printf.printf "b.(u + v) = ";;
+  List.iter (Printf.printf "%0.2f ") scalar_dist1;;
+  print_newline ();;
+  Printf.printf "b.u + b.v = ";;
+  List.iter (Printf.printf "%0.2f ") scalar_dist2;;
+  print_newline ();; *)
    
 
  (*-----------PROOFS---------*)
