@@ -42,10 +42,11 @@ rule tokenize = parse
 
     | ":=" { ASSIGN }
 
-    | (num as n) space* ("[" (num (space* "," space* num)* as lit) "]") { INTVECTOR (int_of_string n, "[" ^ lit ^ "]") }
-    | (num as n) space* ("[" (float (space* "," space* float)* as lit) "]") { FLOATVECTOR (int_of_string n, "[" ^ lit ^ "]") }
-    | (num as rows) space* "," space* (num as cols) space* ("[" (('[' num (space* "," space* num)* ']') space* ("," space* '[' num (space* "," space* num)* ']')* as lit) "]") { INTMATRIX (int_of_string rows, int_of_string cols, "[" ^ lit ^ "]") }
-    | (num as rows) space* "," space* (num as cols) space* ("[" (('[' float (space* "," space* float)* ']') space* ("," space* '[' float (space* "," space* float)* ']')* as lit) "]") { FLOATMATRIX (int_of_string rows, int_of_string cols, "[" ^ lit ^ "]") }
+    (* FLOATVECTOR first *)
+    | (num as n) space* ("[" space* (float (space* "," space* float)* as lit) space* "]") { FLOATVECTOR (int_of_string n, "[" ^ lit ^ "]") }
+    | (num as n) space* ("[" space* (num (space* "," space* num)* as lit) space* "]") { INTVECTOR (int_of_string n, "[" ^ lit ^ "]") }
+    | (num as rows) space* "," space* (num as cols) space* ("[" space* (('[' num (space* "," space* num)* ']') space* ("," space* '[' num (space* "," space* num)* ']')* as lit) space* "]") { INTMATRIX (int_of_string rows, int_of_string cols, "[" ^ lit ^ "]") }
+    | (num as rows) space* "," space* (num as cols) space* ("[" space* (('[' float (space* "," space* float)* ']') space* ("," space* '[' float (space* "," space* float)* ']')* as lit) space* "]") { FLOATMATRIX (int_of_string rows, int_of_string cols, "[" ^ lit ^ "]") }
 
     | "true" { BOOL true } | "false" { BOOL false }
 
@@ -70,7 +71,7 @@ rule tokenize = parse
 
     | num as n { INT (int_of_string n) }
     | float as f { FLOAT (float_of_string f) }
-    
+
     | identifier as id { VAR id }
 
     | eof { EOF }
