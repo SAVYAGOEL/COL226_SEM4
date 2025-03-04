@@ -23,8 +23,11 @@ let digit = ['0'-'9']
 let smallAlpha = ['a'-'z']
 let capAlpha = ['A'-'Z']
 let letter = smallAlpha | capAlpha
-let num = ('-'? digit+)  (* Support negatives *)
-let float = ('-'? digit+ "." digit+)  (* Float requires decimal *)
+let integ = ('0' | (['1'-'9'] digit*))
+let num = ('0' | ('-'? ['1'-'9'] digit*))  
+(* float supporting scientific notation *)
+let posfloat = (integ '.' integ) | (integ '.' digit* ['e' 'E'] ['+' '-']? digit+)
+let float = ('-'? posfloat) 
 let identifier = letter (letter | digit | '_')*
 let space = [' ' '\t' '\n']+
 
@@ -69,8 +72,8 @@ rule tokenize = parse
     | "for" { FOR } | "to" { TO } | "do" { DO }
     | "while" { WHILE } | "break" { BREAK } | "continue" { CONTINUE }
 
-    | num as n { INT (int_of_string n) }
-    | float as f { FLOAT (float_of_string f) }
+    | integ as n { INT (int_of_string n) }
+    | posfloat as f { FLOAT (float_of_string f) }
 
     | identifier as id { VAR id }
 
