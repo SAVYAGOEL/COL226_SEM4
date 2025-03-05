@@ -33,3 +33,6 @@ For all vectors u, v, and w, and for all scalars b and c:
 (Scalar sum-product distribution)  (b + c).v = b.v + c.v
 (Scalar Distribution over vector sums)  b.(u + v) = b.u + b.v
 State at least three other properties (especially with respect to the length, dot product, angle etc.)
+
+
+To run: Place the files in the same directory, then just type "make" in the terminal from that directory. You may type "make clean" after running to clean up the useless files.
