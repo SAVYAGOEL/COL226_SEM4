@@ -1,0 +1,5 @@
+(library
+ (name testcases)
+ (inline_tests)
+ (libraries assignment2)
+ (preprocess (pps ppx_inline_test)))
