@@ -1,4 +1,7 @@
-open Vector
+open Vector;;
+(* Test cases for the vector module. *)
+
+(* Test the create function. *)
 
 let () =
   Printf.printf "Testing create...\n";
