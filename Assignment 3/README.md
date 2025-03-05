@@ -32,3 +32,7 @@ BONUS ACTIVITY
 Think of how you may want this to look if you had a 2-dimensional syntax (graphics)
 
 Think of how you may want to design this language so that it may be usable for say a visually-disabled programmer. 
+
+
+To run, download the files and place them in the same folder, then just type "make" in the terminal(without quotes). To remove the extra files after running you may type "make clean".
+
