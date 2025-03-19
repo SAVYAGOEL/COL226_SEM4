@@ -1,10 +1,10 @@
 all:
-	ocamlc -c ast.ml
-	ocamlyacc -v parser.mly
-	ocamlc -c parser.mli
-	ocamlc -c parser.ml
 	ocamllex lexer.mll
+	ocamlyacc parser.mly
+	ocamlc -c ast.ml
+	ocamlc -c parser.mli
 	ocamlc -c lexer.ml
+	ocamlc -c parser.ml
 	ocamlc -c main.ml
 	ocamlc -o test ast.cmo lexer.cmo parser.cmo main.cmo
 	./test > output.txt

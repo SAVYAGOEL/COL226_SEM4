@@ -11,6 +11,7 @@ let num = ('0' | ('-'? ['1'-'9'] digit*))
 let posfloat = (integ '.' integ) | (integ '.' digit* ['e' 'E'] ['+' '-']? digit+)
 let float = ('-'? posfloat) 
 let identifier = letter (letter | digit | '_')*
+let filename = identifier | ""
 let space = [' ' '\t' '\n']+
 
 rule tokenize = parse
@@ -18,8 +19,8 @@ rule tokenize = parse
     | "//" [^ '\n']* { tokenize lexbuf }
     | "/*" ([^ '*'] | ('*' [^ '/']))* "*/" { tokenize lexbuf }
 
-    | "Input" space* "(" space* (identifier as file) space* ")" { INPUT file }
-    | "Print" space* "(" space* (identifier as file) space* ")" { PRINT file }
+    | "Input" space* "(" space* (filename as file) space* ")" { INPUT file }
+    | "Print" space* "(" space* (filename as file) space* ")" { PRINT file }
 
     | "vector" { TYPE_VECTOR }
     | "matrix" { TYPE_MATRIX }

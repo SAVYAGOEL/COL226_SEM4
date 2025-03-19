@@ -46,8 +46,7 @@ let parse_error msg =
 %%
 
 program:
-  | EOF { IntLit 0 }
-  | seq_stmt { $1 }
+  | seq_stmt { let _ = Ast.typecheck_expr Ast.empty $1 in $1 }
 
 seq_stmt:
   | stmt { $1 }
@@ -55,12 +54,10 @@ seq_stmt:
 
 stmt:
   | expr SEMICOLON { $1 }
-  | VAR ASSIGN expr SEMICOLON { Assign ($1, $3) }
-  | VAR LSQ expr RSQ ASSIGN expr SEMICOLON { IndexAssign ($1, $3, $6) }              (* New: Vector index assignment *)
-  | VAR LSQ expr COMMA expr RSQ ASSIGN expr SEMICOLON { IndexMatAssign ($1, $3, $5, $8) }  (* New: Matrix index assignment *)
+  | expr ASSIGN expr SEMICOLON { AssignExpr ($1, $3) }
   | INPUT SEMICOLON { Input $1 }
   | PRINT SEMICOLON { Print $1 }
-  | IF LPAREN expr RPAREN THEN LPAREN seq_stmt RPAREN ELSE LPAREN seq_stmt RPAREN SEMICOLON { If ($3, $7, $11) }
+  | IF LPAREN expr RPAREN THEN LPAREN seq_stmt RPAREN ELSE LPAREN seq_stmt RPAREN SEMICOLON { If ($3, $7, $11) }  (* Required ELSE *)
   | FOR LPAREN VAR ASSIGN expr TO expr RPAREN DO LPAREN seq_stmt RPAREN SEMICOLON { For ($3, $5, $7, $11) }
   | WHILE LPAREN expr RPAREN DO LPAREN seq_stmt RPAREN SEMICOLON { While ($3, $7) }
   | TYPE_INT VAR SEMICOLON { VarType ("int", $2, None) }
@@ -68,11 +65,11 @@ stmt:
   | TYPE_FLOAT VAR SEMICOLON { VarType ("float", $2, None) }
   | TYPE_VECTOR INT VAR SEMICOLON { VarType ("vector", $3, Some ($2, None)) }
   | TYPE_MATRIX INT COMMA INT VAR SEMICOLON { VarType ("matrix", $5, Some ($2, Some $4)) }
-  | TYPE_INT VAR ASSIGN expr SEMICOLON { Seq (VarType ("int", $2, None), Assign ($2, $4)) }
-  | TYPE_BOOL VAR ASSIGN expr SEMICOLON { Seq (VarType ("bool", $2, None), Assign ($2, $4)) }
-  | TYPE_FLOAT VAR ASSIGN expr SEMICOLON { Seq (VarType ("float", $2, None), Assign ($2, $4)) }
-  | TYPE_VECTOR INT VAR ASSIGN expr SEMICOLON { Seq (VarType ("vector", $3, Some ($2, None)), Assign ($3, $5)) }
-  | TYPE_MATRIX INT COMMA INT VAR ASSIGN expr SEMICOLON { Seq (VarType ("matrix", $5, Some ($2, Some $4)), Assign ($5, $7)) }
+  | TYPE_INT VAR ASSIGN expr SEMICOLON { Seq (VarType ("int", $2, None), AssignExpr (Var $2, $4)) }
+  | TYPE_BOOL VAR ASSIGN expr SEMICOLON { Seq (VarType ("bool", $2, None), AssignExpr (Var $2, $4)) }
+  | TYPE_FLOAT VAR ASSIGN expr SEMICOLON { Seq (VarType ("float", $2, None), AssignExpr (Var $2, $4)) }
+  | TYPE_VECTOR INT VAR ASSIGN expr SEMICOLON { Seq (VarType ("vector", $3, Some ($2, None)), AssignExpr (Var $3, $5)) }
+  | TYPE_MATRIX INT COMMA INT VAR ASSIGN expr SEMICOLON { Seq (VarType ("matrix", $5, Some ($2, Some $4)), AssignExpr (Var $5, $7)) }
 
 expr:
   | INT { IntLit $1 }
@@ -88,6 +85,7 @@ expr:
   | expr LSQ expr COMMA expr RSQ { IndexMat ($1, $3, $5) }
   | expr PLUS expr { Plus ($1, $3) }
   | expr MINUS expr { Minus ($1, $3) }
+  | LPAREN MINUS expr RPAREN { Uminus ($3) }
   | expr TIMES expr { Times ($1, $3) }
   | expr DIV expr { Div ($1, $3) }
   | expr AND expr { And ($1, $3) }
@@ -108,5 +106,4 @@ expr:
   | DIMENSION expr { Dimension $2 }
   | TRANSPOSE expr { Transpose $2 }
   | DETERMINANT expr { Determinant $2 }
-
 %%

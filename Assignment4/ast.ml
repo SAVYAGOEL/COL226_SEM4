@@ -1,5 +1,4 @@
 (* ast.ml *)
-
 type typ =
   | TInt
   | TFloat
@@ -25,6 +24,7 @@ and expr =
   | Var of string
   | Plus of expr * expr
   | Minus of expr * expr
+  | Uminus of expr
   | Times of expr * expr
   | Div of expr * expr
   | And of expr * expr
@@ -45,13 +45,9 @@ and expr =
   | Dimension of expr
   | Transpose of expr
   | Determinant of expr
-  | MatAdd of expr * expr
-  | MatMul of expr * expr
   | Index of expr * expr
   | IndexMat of expr * expr * expr
-  | Assign of string * expr
-  | IndexAssign of string * expr * expr
-  | IndexMatAssign of string * expr * expr * expr
+  | AssignExpr of expr * expr
   | Seq of expr * expr
   | If of expr * expr * expr
   | For of string * expr * expr * expr
@@ -65,6 +61,8 @@ type ast = expr
 module Env = Map.Make(String)
 type env = typ Env.t
 
+let empty = Env.empty
+
 exception TypeError of string
 
 let typ_of_vartype typ_name dims =
@@ -72,8 +70,8 @@ let typ_of_vartype typ_name dims =
   | "int", None -> TInt
   | "float", None -> TFloat
   | "bool", None -> TBool
-  | "vector", Some (n, None) -> TVector (n, TInt)  (* Default to int, adjusted in Assign *)
-  | "matrix", Some (r, Some c) -> TMatrix (r, c, TInt)  (* Default to int, adjusted in Assign *)
+  | "vector", Some (n, None) -> TVector (n, TInt)
+  | "matrix", Some (r, Some c) -> TMatrix (r, c, TInt)
   | _ -> raise (TypeError ("Invalid type declaration: " ^ typ_name))
 
 let check_compatible t1 t2 =
@@ -81,8 +79,13 @@ let check_compatible t1 t2 =
   | TInt, TInt | TFloat, TFloat | TBool, TBool -> true
   | TVector (n1, et1), TVector (n2, et2) -> n1 = n2 && et1 = et2
   | TMatrix (r1, c1, et1), TMatrix (r2, c2, et2) -> r1 = r2 && c1 = c2 && et1 = et2
+  | TUnit, TUnit -> true
+  | _ -> false
+
+let check_compatible_arith t1 t2 =
+  match t1, t2 with
+  | TInt, TInt | TFloat, TFloat -> true
   | TInt, TFloat | TFloat, TInt -> true
-  | TUnit, TUnit -> true  (* For statements *)
   | _ -> false
 
 let arith_result_type t1 t2 =
@@ -104,11 +107,24 @@ let rec typecheck_expr env = function
       (match Env.find_opt v env with
        | Some t -> (t, env)
        | None -> raise (TypeError ("Undefined variable: " ^ v)))
-  | Plus (e1, e2) | Minus (e1, e2) | Times (e1, e2) | Div (e1, e2) ->
+  | Plus (e1, e2) | Minus (e1, e2) | Div (e1, e2) ->
       let (t1, env1) = typecheck_expr env e1 in
       let (t2, env2) = typecheck_expr env1 e2 in
-      if check_compatible t1 t2 then (arith_result_type t1 t2, env2)
+      if check_compatible_arith t1 t2 then (arith_result_type t1 t2, env2)
       else raise (TypeError "Incompatible types for arithmetic operation")
+  | Times (e1, e2) ->
+    let (t1, env1) = typecheck_expr env e1 in
+    let (t2, env2) = typecheck_expr env1 e2 in
+    (match t1, t2 with
+     | TInt, TInt | TFloat, TFloat | TInt, TFloat | TFloat, TInt ->
+         (arith_result_type t1 t2, env2)  (* Scalar multiplication *)
+     | TMatrix (r1, c1, et1), TMatrix (r2, c2, et2) when c1 = r2 && et1 = et2 ->
+         (TMatrix (r1, c2, et1), env2)  (* Matrix multiplication *)
+     | _ -> raise (TypeError "Times requires compatible scalar or matrix types"))
+  | Uminus (e) ->
+    let (t, env1) = typecheck_expr env e in
+    if t = TInt || t = TFloat then (t, env1)
+    else raise (TypeError "Unary minus requires numeric operand")
   | And (e1, e2) | Or (e1, e2) ->
       let (t1, env1) = typecheck_expr env e1 in
       let (t2, env2) = typecheck_expr env1 e2 in
@@ -128,11 +144,13 @@ let rec typecheck_expr env = function
       if t = TInt || t = TFloat then (t, env')
       else raise (TypeError "Abs requires numeric operand")
   | Scale (scalar, vec) ->
-      let (ts, env1) = typecheck_expr env scalar in
-      let (tv, env2) = typecheck_expr env1 vec in
-      (match ts, tv with
-       | (TInt | TFloat), TVector (n, et) -> (TVector (n, et), env2)
-       | _ -> raise (TypeError "Scale requires scalar and vector"))
+      let (tv, env1) = typecheck_expr env vec in
+      (match scalar, tv with
+       | IntLit _, TVector (n, TInt) -> (TVector (n, TInt), env1)
+       | FloatLit _, TVector (n, TFloat) -> (TVector (n, TFloat), env1)
+       | IntLit _, TMatrix (r, c, TInt) -> (TMatrix (r, c, TInt), env1)
+       | FloatLit _, TMatrix (r, c, TFloat) -> (TMatrix (r, c, TFloat), env1)
+       | _ -> raise (TypeError "Scale requires int literal for int vector or float literal for float vector"))
   | AddV (v1, v2) ->
       let (t1, env1) = typecheck_expr env v1 in
       let (t2, env2) = typecheck_expr env1 v2 in
@@ -184,75 +202,74 @@ let rec typecheck_expr env = function
       (match tm, ti, tj with
        | TMatrix (_, _, et), TInt, TInt -> (et, env3)
        | _ -> raise (TypeError "Matrix indexing requires matrix and integer indices"))
-  | Assign (v, e) ->
-      let (te, env1) = typecheck_expr env e in
-      (match Env.find_opt v env with
-       | Some tv ->
-           (match tv, te with
-            | TVector (n, _), TVector (m, et) when n = m -> (TUnit, Env.add v (TVector (n, et)) env1)  (* Update element type *)
-            | TMatrix (r, c, _), TMatrix (r', c', et) when r = r' && c = c' -> (TUnit, Env.add v (TMatrix (r, c, et)) env1)
-            | _ ->
-                if check_compatible tv te then (TUnit, env1)
-                else raise (TypeError ("Type mismatch in assignment to " ^ v)))
-       | None -> raise (TypeError ("Undefined variable in assignment: " ^ v)))
-  | IndexAssign (v, i, e) ->
-      let (ti, env1) = typecheck_expr env i in
-      let (te, env2) = typecheck_expr env1 e in
-      (match Env.find_opt v env with
-       | Some (TVector (_, et)) ->
-           if ti = TInt && check_compatible et te then (TUnit, env2)
-           else raise (TypeError ("Type mismatch in vector index assignment to " ^ v))
-       | Some _ -> raise (TypeError (v ^ " is not a vector for index assignment"))
-       | None -> raise (TypeError ("Undefined variable in index assignment: " ^ v)))
-  | IndexMatAssign (v, i, j, e) ->
-      let (ti, env1) = typecheck_expr env i in
-      let (tj, env2) = typecheck_expr env1 j in
-      let (te, env3) = typecheck_expr env2 e in
-      (match Env.find_opt v env with
-       | Some (TMatrix (_, _, et)) ->
-           if ti = TInt && tj = TInt && check_compatible et te then (TUnit, env3)
-           else raise (TypeError ("Type mismatch in matrix index assignment to " ^ v))
-       | Some _ -> raise (TypeError (v ^ " is not a matrix for index assignment"))
-       | None -> raise (TypeError ("Undefined variable in index assignment: " ^ v)))
+  | AssignExpr (lhs, rhs) ->
+      let tlhs = typecheck_lvalue env lhs in
+      let (trhs, env') = typecheck_expr env rhs in
+      (match lhs, rhs with
+       | Var v, Input _ ->  (* Updated: Allow all types for Input *)
+           (TUnit, Env.add v tlhs env')  (* No type restriction *)
+       | Var v, _ ->
+           if check_compatible tlhs trhs then
+             (match tlhs, trhs with
+              | TVector (n, _), TVector (m, et) when n = m -> (TUnit, Env.add v (TVector (n, et)) env')
+              | TMatrix (r, c, _), TMatrix (r', c', et) when r = r' && c = c' -> (TUnit, Env.add v (TMatrix (r, c, et)) env')
+              | _ -> (TUnit, env'))
+           else raise (TypeError ("Type mismatch in assignment to " ^ v))
+       | _, _ ->
+           if check_compatible tlhs trhs then (TUnit, env')
+           else raise (TypeError "Type mismatch in indexed assignment"))
   | Seq (e1, e2) ->
-      let (_, env1) = typecheck_expr env e1 in
-      typecheck_expr env1 e2
+      let (t1, env1) = typecheck_expr env e1 in
+      let (t2, env2) = typecheck_expr env1 e2 in
+      if t1 = TUnit then (t2, env2)
+      else raise (TypeError "Sequence expressions must return unit type except the last")
   | If (cond, thn, els) ->
       let (tcond, env1) = typecheck_expr env cond in
-      let (tthn, _) = typecheck_expr env1 thn in  (* Discard env from branches *)
-      let (tels, _) = typecheck_expr env1 els in
-      if tcond = TBool then
-        if tthn = TUnit && tels = TUnit then (TUnit, env1)  (* Only require TUnit *)
-        else raise (TypeError "If branches must be unit type for statements")
-      else raise (TypeError "If condition must be boolean")
+      if tcond <> TBool then raise (TypeError "If condition must be boolean");
+      let (tthn, _) = typecheck_expr env thn in
+      let (tels, _) = typecheck_expr env els in
+      if tthn = TUnit && tels = TUnit then (TUnit, env1)
+      else raise (TypeError "If branches must be unit type for statements")
   | For (v, start, stop, body) ->
       let (tstart, env1) = typecheck_expr env start in
       let (tstop, env2) = typecheck_expr env1 stop in
-      if tstart = TInt && tstop = TInt then
-        let env' = Env.add v TInt env2 in
-        let (tbody, _) = typecheck_expr env' body in
-        if tbody = TUnit then (TUnit, env2)
-        else raise (TypeError "For loop body must be unit type")
-      else raise (TypeError "For loop bounds must be integers")
+      if tstart <> TInt || tstop <> TInt then raise (TypeError "For loop bounds must be integers");
+      let env' = Env.add v TInt env2 in
+      let (tbody, _) = typecheck_expr env' body in
+      if tbody = TUnit then (TUnit, env2)
+      else raise (TypeError "For loop body must be unit type")
   | While (cond, body) ->
       let (tcond, env1) = typecheck_expr env cond in
+      if tcond <> TBool then raise (TypeError "While requires boolean condition");
       let (tbody, _) = typecheck_expr env1 body in
-      if tcond = TBool && tbody = TUnit then (TUnit, env1)
-      else raise (TypeError "While requires boolean condition and unit body")
-  | Print v ->
-      (match Env.find_opt v env with
-       | Some _ -> (TUnit, env)
-       | None -> raise (TypeError ("Undefined variable in print: " ^ v)))
-  | Input v ->
-      (match Env.find_opt v env with
-       | Some _ -> (TUnit, env)
-       | None -> raise (TypeError ("Undefined variable in input: " ^ v)))
+      if tbody = TUnit then (TUnit, env1)
+      else raise (TypeError "While body must be unit type")
+  | Print s -> (TUnit, env)
+  | Input s -> (TUnit, env)
   | VarType (typ_name, v, dims) ->
       let t = typ_of_vartype typ_name dims in
       let env' = Env.add v t env in
-      (t, env')
-  | MatAdd _ | MatMul _ ->
-      raise (TypeError "Matrix addition and multiplication not implemented")
+      (TUnit, env')
+
+and typecheck_lvalue env = function
+  | Var v ->
+      (match Env.find_opt v env with
+       | Some t -> t
+       | None -> raise (TypeError ("Undefined variable in assignment: " ^ v)))
+  | Index (v, i) ->
+      let (tv, env1) = typecheck_expr env v in
+      let (ti, _) = typecheck_expr env1 i in
+      (match tv, ti with
+       | TVector (_, et), TInt -> et
+       | _ -> raise (TypeError "Vector indexing in assignment requires vector and integer index"))
+  | IndexMat (m, i, j) ->
+      let (tm, env1) = typecheck_expr env m in
+      let (ti, env2) = typecheck_expr env1 i in
+      let (tj, _) = typecheck_expr env2 j in
+      (match tm, ti, tj with
+       | TMatrix (_, _, et), TInt, TInt -> et
+       | _ -> raise (TypeError "Matrix indexing in assignment requires matrix and integer indices"))
+  | _ -> raise (TypeError "Left-hand side of assignment must be a variable or indexed expression")
 
 let typecheck_program e =
   let empty_env = Env.empty in
