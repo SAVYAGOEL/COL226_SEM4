@@ -22,6 +22,7 @@ and expr =
   | VecLit of vector_type
   | MatLit of matrix_type
   | Var of string
+  | Raise of string
   | Plus of expr * expr
   | Minus of expr * expr
   | Uminus of expr
@@ -37,6 +38,7 @@ and expr =
   | Geq of expr * expr
   | Not of expr
   | Abs of expr
+  | Sqrt of expr
   | Scale of expr * expr
   | AddV of expr * expr
   | DotProd of expr * expr
@@ -45,6 +47,8 @@ and expr =
   | Dimension of expr
   | Transpose of expr
   | Determinant of expr
+  | Inv of expr
+  | Minor of expr * expr * expr
   | Index of expr * expr
   | IndexMat of expr * expr * expr
   | AssignExpr of expr * expr
@@ -95,6 +99,12 @@ let arith_result_type t1 t2 =
   | TInt, TFloat | TFloat, TInt -> TFloat
   | _ -> raise (TypeError "Arithmetic operation requires numeric types")
 
+let check_compatible_compare t1 t2 =
+  match t1, t2 with
+  | TInt, TInt | TFloat, TFloat -> true
+  | TFloat, TInt | TInt, TFloat -> true
+  | _ -> false
+
 let rec typecheck_expr env = function
   | IntLit _ -> (TInt, env)
   | FloatLit _ -> (TFloat, env)
@@ -107,7 +117,16 @@ let rec typecheck_expr env = function
       (match Env.find_opt v env with
        | Some t -> (t, env)
        | None -> raise (TypeError ("Undefined variable: " ^ v)))
-  | Plus (e1, e2) | Minus (e1, e2) | Div (e1, e2) ->
+  | Plus (e1, e2) | Minus (e1, e2) ->
+    let (t1, env1) = typecheck_expr env e1 in
+    let (t2, env2) = typecheck_expr env1 e2 in
+    (match t1, t2 with
+     | TMatrix (r1, c1, et1), TMatrix (r2, c2, et2) when r1 = r2 && c1 = c2 && et1 = et2 ->
+         (TMatrix (r1, c1, et1), env2)
+     | _ ->
+         if check_compatible_arith t1 t2 then (arith_result_type t1 t2, env2)
+         else raise (TypeError "Incompatible types for arithmetic operation"))
+  | Div (e1, e2) ->
       let (t1, env1) = typecheck_expr env e1 in
       let (t2, env2) = typecheck_expr env1 e2 in
       if check_compatible_arith t1 t2 then (arith_result_type t1 t2, env2)
@@ -116,11 +135,13 @@ let rec typecheck_expr env = function
     let (t1, env1) = typecheck_expr env e1 in
     let (t2, env2) = typecheck_expr env1 e2 in
     (match t1, t2 with
-     | TInt, TInt | TFloat, TFloat | TInt, TFloat | TFloat, TInt ->
-         (arith_result_type t1 t2, env2)  (* Scalar multiplication *)
-     | TMatrix (r1, c1, et1), TMatrix (r2, c2, et2) when c1 = r2 && et1 = et2 ->
-         (TMatrix (r1, c2, et1), env2)  (* Matrix multiplication *)
-     | _ -> raise (TypeError "Times requires compatible scalar or matrix types"))
+      | TInt, TInt | TFloat, TFloat | TInt, TFloat | TFloat, TInt ->
+          (arith_result_type t1 t2, env2)
+      | TMatrix (r1, c1, et1), TMatrix (r2, c2, et2) when c1 = r2 && et1 = et2 ->
+          (TMatrix (r1, c2, et1), env2)
+      | TMatrix (r1, c1, et1), TVector (n, et2) when c1 = n && et1 = et2 ->
+          (TMatrix (r1, 1, et1), env2)  (* Vector as n×1 matrix *)
+      | _ -> raise (TypeError "Times requires compatible scalar or matrix types"))
   | Uminus (e) ->
     let (t, env1) = typecheck_expr env e in
     if t = TInt || t = TFloat then (t, env1)
@@ -133,7 +154,7 @@ let rec typecheck_expr env = function
   | Eq (e1, e2) | Neq (e1, e2) | Lt (e1, e2) | Gt (e1, e2) | Leq (e1, e2) | Geq (e1, e2) ->
       let (t1, env1) = typecheck_expr env e1 in
       let (t2, env2) = typecheck_expr env1 e2 in
-      if check_compatible t1 t2 then (TBool, env2)
+      if check_compatible_compare t1 t2 then (TBool, env2)
       else raise (TypeError "Comparison requires compatible types")
   | Not e ->
       let (t, env') = typecheck_expr env e in
@@ -143,6 +164,10 @@ let rec typecheck_expr env = function
       let (t, env') = typecheck_expr env e in
       if t = TInt || t = TFloat then (t, env')
       else raise (TypeError "Abs requires numeric operand")
+  | Sqrt e ->
+      let (t, env') = typecheck_expr env e in
+      if t = TInt || t = TFloat then (TFloat, env')
+      else raise (TypeError "Sqrt requires int or float operand")
   | Scale (scalar, vec) ->
       let (tv, env1) = typecheck_expr env vec in
       (match scalar, tv with
@@ -152,11 +177,11 @@ let rec typecheck_expr env = function
        | FloatLit _, TMatrix (r, c, TFloat) -> (TMatrix (r, c, TFloat), env1)
        | _ -> raise (TypeError "Scale requires int literal for int vector or float literal for float vector"))
   | AddV (v1, v2) ->
-      let (t1, env1) = typecheck_expr env v1 in
-      let (t2, env2) = typecheck_expr env1 v2 in
-      (match t1, t2 with
-       | TVector (n1, et1), TVector (n2, et2) when n1 = n2 && et1 = et2 -> (TVector (n1, et1), env2)
-       | _ -> raise (TypeError "AddV requires vectors of same length and type"))
+    let (t1, env1) = typecheck_expr env v1 in
+    let (t2, env2) = typecheck_expr env1 v2 in
+    (match t1, t2 with
+      | TVector (n1, et1), TVector (n2, et2) when n1 = n2 && et1 = et2 -> (TVector (n1, et1), env2)
+      | _ -> raise (TypeError "AddV requires vectors of same length and type"))
   | DotProd (v1, v2) ->
       let (t1, env1) = typecheck_expr env v1 in
       let (t2, env2) = typecheck_expr env1 v2 in
@@ -189,6 +214,18 @@ let rec typecheck_expr env = function
       (match tm with
        | TMatrix (r, c, _) when r = c -> (TFloat, env')
        | _ -> raise (TypeError "Determinant requires a square matrix"))
+  | Inv m ->
+      let (tm, env') = typecheck_expr env m in
+      (match tm with
+       | TMatrix (r, c, et) when r = c -> (TMatrix (r, c, et), env')
+       | _ -> raise (TypeError "Inv requires a square matrix"))
+  | Minor (m, i, j) ->
+      let (tm, env1) = typecheck_expr env m in
+      let (ti, env2) = typecheck_expr env1 i in
+      let (tj, env3) = typecheck_expr env2 j in
+      (match tm, ti, tj with
+       | TMatrix (r, c, _), TInt, TInt -> (TMatrix (r - 1, c - 1, TInt), env3)
+       | _ -> raise (TypeError "Minor requires a matrix and two integer indices"))
   | Index (v, i) ->
       let (tv, env1) = typecheck_expr env v in
       let (ti, env2) = typecheck_expr env1 i in
@@ -203,21 +240,32 @@ let rec typecheck_expr env = function
        | TMatrix (_, _, et), TInt, TInt -> (et, env3)
        | _ -> raise (TypeError "Matrix indexing requires matrix and integer indices"))
   | AssignExpr (lhs, rhs) ->
-      let tlhs = typecheck_lvalue env lhs in
-      let (trhs, env') = typecheck_expr env rhs in
-      (match lhs, rhs with
-       | Var v, Input _ ->  (* Updated: Allow all types for Input *)
-           (TUnit, Env.add v tlhs env')  (* No type restriction *)
-       | Var v, _ ->
-           if check_compatible tlhs trhs then
-             (match tlhs, trhs with
-              | TVector (n, _), TVector (m, et) when n = m -> (TUnit, Env.add v (TVector (n, et)) env')
-              | TMatrix (r, c, _), TMatrix (r', c', et) when r = r' && c = c' -> (TUnit, Env.add v (TMatrix (r, c, et)) env')
-              | _ -> (TUnit, env'))
-           else raise (TypeError ("Type mismatch in assignment to " ^ v))
-       | _, _ ->
-           if check_compatible tlhs trhs then (TUnit, env')
-           else raise (TypeError "Type mismatch in indexed assignment"))
+    let tlhs = typecheck_lvalue env lhs in
+    let (trhs, env') = typecheck_expr env rhs in
+    (match lhs with
+      | Var v ->
+          if check_compatible tlhs trhs then
+            (match rhs, trhs with
+            | Input _, _ -> (TUnit, Env.add v tlhs env')  (* Input can assign any compatible type *)
+            | _, TVector (n, et) when tlhs = TVector (n, et) -> (TUnit, Env.add v (TVector (n, et)) env')
+            | _, TMatrix (r, c, et) when tlhs = TMatrix (r, c, et) -> (TUnit, Env.add v (TMatrix (r, c, et)) env')
+            | _, t -> (TUnit, Env.add v t env'))  (* Update env with rhs type *)
+          else raise (TypeError ("Type hello mismatch in assignment to variable " ^ v))
+      | Index (v, i) ->
+          let (tv, _) = typecheck_expr env v in
+          (match tv with
+          | TVector (_, et) ->
+              if check_compatible et trhs then (TUnit, env')
+              else raise (TypeError "Type mismatch in vector indexed assignment")
+          | _ -> raise (TypeError "Vector indexing in assignment requires vector"))
+      | IndexMat (m, i, j) ->
+          let (tm, _) = typecheck_expr env m in
+          (match tm with
+          | TMatrix (_, _, et) ->
+              if check_compatible et trhs then (TUnit, env')
+              else raise (TypeError "Type mismatch in matrix indexed assignment")
+          | _ -> raise (TypeError "Matrix indexing in assignment requires matrix"))
+      | _ -> raise (TypeError "Left-hand side of assignment must be a variable or indexed expression"))
   | Seq (e1, e2) ->
       let (t1, env1) = typecheck_expr env e1 in
       let (t2, env2) = typecheck_expr env1 e2 in
@@ -246,6 +294,7 @@ let rec typecheck_expr env = function
       else raise (TypeError "While body must be unit type")
   | Print s -> (TUnit, env)
   | Input s -> (TUnit, env)
+  | Raise s -> (TUnit, env)
   | VarType (typ_name, v, dims) ->
       let t = typ_of_vartype typ_name dims in
       let env' = Env.add v t env in

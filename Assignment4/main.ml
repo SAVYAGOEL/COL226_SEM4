@@ -15,7 +15,7 @@ let rec string_of_typ = function
   | TUnit -> "unit"
   | _ -> Printf.sprintf "check kr bhai error hai"
 
-(* Pretty-printer for AST - adapted from your first main.ml *)
+(* Pretty-printer for AST *)
 let rec expr_to_string = function
   | IntLit i -> Printf.sprintf "IntLit(%d)" i
   | FloatLit f -> Printf.sprintf "FloatLit(%f)" f
@@ -48,6 +48,9 @@ let rec expr_to_string = function
   | Dimension e -> Printf.sprintf "Dimension(%s)" (expr_to_string e)
   | Transpose e -> Printf.sprintf "Transpose(%s)" (expr_to_string e)
   | Determinant e -> Printf.sprintf "Determinant(%s)" (expr_to_string e)
+  | Inv e -> Printf.sprintf "Inv(%s)" (expr_to_string e)
+  | Minor (e1, e2, e3) -> Printf.sprintf "Minor(%s, %s, %s)" (expr_to_string e1) (expr_to_string e2) (expr_to_string e3)
+  | Sqrt e -> Printf.sprintf "Sqrt(%s)" (expr_to_string e)
   | Index (e1, e2) -> Printf.sprintf "Index(%s, %s)" (expr_to_string e1) (expr_to_string e2)
   | IndexMat (e1, e2, e3) -> Printf.sprintf "IndexMat(%s, %s, %s)" (expr_to_string e1) (expr_to_string e2) (expr_to_string e3)
   | AssignExpr (e1, e2) -> Printf.sprintf "AssignExpr(%s, %s)" (expr_to_string e1) (expr_to_string e2)
@@ -57,6 +60,7 @@ let rec expr_to_string = function
   | While (c, b) -> Printf.sprintf "While(%s, %s)" (expr_to_string c) (expr_to_string b)
   | Print s -> Printf.sprintf "Print(\"%s\")" s
   | Input s -> Printf.sprintf "Input(\"%s\")" s
+  | Raise s -> Printf.sprintf "Raise(\"%s\")" s
   | VarType (t, v, None) -> Printf.sprintf "VarType(%s, %s, None)" t v
   | VarType (t, v, Some (n, None)) -> Printf.sprintf "VarType(%s, %s, Some(%d, None))" t v n
   | VarType (t, v, Some (r, Some c)) -> Printf.sprintf "VarType(%s, %s, Some(%d, Some %d))" t v r c
@@ -71,9 +75,9 @@ let run_test num input =
   Printf.printf "\nTest %d:\nInput: %s\n" num input;
   let lexbuf = Lexing.from_string input in
   try
-    let ast = Parser.program Lexer.tokenize lexbuf in  (* Use your parser *)
+    let ast = Parser.program Lexer.tokenize lexbuf in
     Printf.printf "AST: %s\n" (expr_to_string ast);
-    typecheck_program ast;  (* Your type checker *)
+    typecheck_program ast;
     Printf.printf "Type Check: Passed\n"
   with
   | Parsing.Parse_error ->
@@ -83,119 +87,76 @@ let run_test num input =
   | e ->
       Printf.printf "Type Check: Failed - Unexpected error at %s: %s\n" (print_position lexbuf) (Printexc.to_string e)
 
-(* Main function with test cases *)
+(* Main function with updated and new test cases *)
 let main () =
   let tests = [
-    (* 1. Basic Declaration and Assignment *)
-    (1, "int x := 42; Print(x);");
+    (* Instructor's Adapted Test Cases *)
+    (1, "matrix 2,2 A := 2,2 [[1, 2], [3, 4]]; matrix 2,2 B := 2,2 [[5, 6], [7, 8]]; matrix 2,2 add_matrices := (A + B); Print(add_matrices);"); (* Matrix Sum *)
+    (2, "matrix 2,2 A := 2,2 [[1, 2], [3, 4]]; matrix 2,2 transpose_matrix := transpose(A); Print(transpose_matrix);"); (* Matrix Transpose *)
+    (3, "matrix 2,2 A := 2,2 [[1, 2], [3, 4]]; float determinant_of_matrix := det(A); Print(determinant_of_matrix);"); (* Matrix Determinant *)
+    (4, "matrix 2,2 A := 2,2 [[1, 2], [3, 4]]; if ((det(A) != 0)) then { matrix 2,2 cofactor_matrix := 2,2 [[4, -3], [-2, 1]]; matrix 2,2 adjoint_of_matrix := transpose(cofactor_matrix); matrix 2,2 inverse_of_matrix := scale((1 / det(A)), adjoint_of_matrix); Print(inverse_of_matrix); } else { Print(error); };");
+    (5, "matrix 2,3 A := 2,3 [[1, 2, 3], [4, 5, 6]]; matrix 3,2 B := 3,2 [[1, 2], [3, 4], [5, 6]]; matrix 2,2 multiply_matrices := (A * B); Print(multiply_matrices);"); (* Matrix Multiplication *)
+    (6, "matrix 2,2 A := 2,2 [[1, 2], [3, 4]]; vector 2 x := 2 [5, 6]; matrix 2,1 multiply_vector_matrix := (A * x); Print(multiply_vector_matrix);"); (* Matrix-Vector Product *)
+    (7, "matrix 2,2 A := 2,2 [[1, 2], [3, 4]]; vector 2 b := 2 [5, 11]; if ((det(A) != 0)) then { vector 2 x := scale((1 / det(A)), (A * b)); Print(x); } else { Print(error); };"); (* Gaussian Elimination *)
+    (8, "matrix 2,2 A := 2,2 [[1, 2], [3, 4]]; float trace := (1.0 + 4.0); float determinant := det(A); float D := ((trace * trace) - (4.0 * determinant)); if ((D >= 0)) then { float eigenvalue1 := (((trace + D) / 2)); float eigenvalue2 := (((trace - D) / 2)); Print(eigenvalue1); Print(eigenvalue2); } else { Print(error); };"); (* Eigenvalues *)
+    (9, "matrix 5,3 V := 5,3 [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13, 14, 15]]; vector 3 vector_sum := 3 [0, 0, 0]; for (i := 0 to 4) do { vector_sum := addv(vector_sum, minor(V, i, 0)); }; Print(vector_sum);"); (* For Loop *)
+    (10, "matrix 2,2 A := 2,2 [[1, 2], [3, 4]]; int sum_of_squares := 0; for (i := 0 to 1) do { for (j := 0 to 1) do { sum_of_squares := (sum_of_squares + (A[i,j] * A[i,j])); }; }; Print(sum_of_squares);"); (* Magnitude *)
+    (11, "matrix 2,2 A := 2,2 [[1, 2], [3, 4]]; float threshold := 0.000001; float norm_diff := 10.0; while ((norm_diff > threshold)) do { A := (A * A); norm_diff := (norm_diff - threshold); }; Print(A);"); (* While Loop *)
 
-    (* 2. Float Arithmetic *)
-    (2, "float x := 5.5 + 3.14; Print(x);");
+    (* Type Compatibility Tests *)
+    (12, "int x := 5; float y := 3.14; float z := (x + y); Print(z);"); (* Mixed scalar arithmetic *)
+    (13, "vector 3 v1 := 3 [1, 2, 3]; vector 3 v2 := 3 [4, 5, 6]; vector 3 v3 := addv(v1, v2); Print(v3);"); (* Vector addition *)
+    (14, "matrix 2,2 m1 := 2,2 [[1, 2], [3, 4]]; matrix 2,2 m2 := 2,2 [[5, 6], [7, 8]]; matrix 2,2 m3 := (m1 * m2); Print(m3);"); (* Square matrix multiplication *)
+    (15, "int x := 5; vector 3 v := 3 [1, 2, 3]; v := scale(x, v); Print(v);"); (* Scalar-vector scaling *)
 
-    (* 3. Type Mismatch *)
-    (3, "int x := 3.14; Print(x);");
+    (* Type Error Tests *)
+    (16, "int x := 5; bool y := true; int z := (x + y); Print(z);"); (* Incompatible arithmetic *)
+    (17, "vector 3 v := 3 [1, 2, 3]; vector 2 w := 2 [4, 5]; vector 3 u := addv(v, w); Print(u);"); (* Vector dimension mismatch *)
+    (18, "matrix 2,3 m1 := 2,3 [[1, 2, 3], [4, 5, 6]]; matrix 2,3 m2 := 2,3 [[7, 8, 9], [10, 11, 12]]; matrix 2,3 m3 := (m1 * m2); Print(m3);"); (* Invalid matrix multiplication *)
+    (19, "float x := 3.14; vector 3 v := 3 [1, 2, 3]; v := scale(x, v); Print(v);"); (* Invalid scalar type for scaling *)
+    (20, "matrix 2,2 m := 2,2 [[1, 2], [3, 4]]; m[true, 1] := 5; Print(m);"); (* Invalid index type *)
 
-    (* 4. Vector Declaration and Print *)
-    (4, "vector 3 v := 3 [1, 2, 3]; Print(v);");
+    (* Parse Error Tests *)
+    (21, "int x := (5 + ); Print(x);"); (* Missing operand *)
+    (22, "matrix 2,2 m := 2,2 [[1, 2] [3, 4]]; Print(m);"); (* Missing comma in matrix *)
+    (23, "if (true then { Print(x); } else { Print(y); };"); (* Missing parenthesis *)
+    (24, "for (i := 0 to 2 do { Print(i); };"); (* Missing closing parenthesis *)
+    (25, "int x := 5 Print(x);"); (* Missing semicolon *)
 
-    (* 5. Vector Type Mismatch *)
-    (5, "vector 3 v := 3 [1.5, 2.5, 3.5]; Print(v);");
+    (* Complex Inputs *)
+    (26, "int x := 0; for (i := 0 to 3) do { if ((i > 1)) then { for (j := 0 to 2) do { x := (x + (i * j)); Print(x); }; } else { x := (x - i); Print(x); }; };"); (* Nested loops and conditionals *)
+    (27, "matrix 3,3 m := 3,3 [[1, 2, 3], [4, 5, 6], [7, 8, 9]]; for (i := 0 to 2) do { for (j := 0 to 2) do { m[i,j] := (m[i,j] * 2); }; }; Print(m);"); (* Matrix indexing in nested loops *)
+    (28, "int x := 5; while ((x > 0)) do { if ((x > 2)) then { x := (x - 1); Print(x); } else { x := (x - 2); Print(x); }; };"); (* While with nested if *)
+    (29, "matrix 2,2 m1 := 2,2 [[1, 2], [3, 4]]; matrix 2,2 m2 := (m1 * m1); matrix 2,2 m3 := (m2 * m1); m3 := scale(2, m3); Print(m3);"); (* Chained matrix operations *)
 
-    (* 6. If with Scoping *)
-    (6, "int x := 5; if (x > 0) then (int y := 10; Print(y);) else (Print(x););");
+    (* Edge Cases *)
+    (30, "matrix 1,1 m := 1,1 [[42]]; Print(m);"); (* 1x1 matrix *)
+    (31, "vector 1 v := 1 [5]; Print(v);"); (* 1D vector *)
+    (32, "int x := 2147483647; x := (x + 1); Print(x);"); (* Integer overflow check *)
+    (33, "float x := 0.0000001; float y := (x / 1000000); Print(y);"); (* Very small float *)
+    (34, "matrix 2,2 m; Input(m); Print(m);"); (* Input without initialization *)
 
-    (* 7. Variable Shadowing *)
-    (7, "int x := 5; int x := 10; Print(x);");
+    (* Additional Complex Tests *)
+    (35, "int x := 0; for (i := 0 to 5) do { for (j := 0 to 5) do { if (((i * j) > 10)) then { x := (x + (i * j)); Print(x); } else { x := (x - 1); Print(x); }; }; };"); (* Deeply nested with arithmetic *)
+    (36, "matrix 3,2 m1 := 3,2 [[1, 2], [3, 4], [5, 6]]; matrix 2,3 m2 := 2,3 [[1, 2, 3], [4, 5, 6]]; matrix 3,3 m3 := (m1 * m2); matrix 3,2 m4 := (m3 * m1); Print(m4);"); (* Multiple matrix multiplications *)
+    (37, "vector 3 v := 3 [1, 2, 3]; int x := dot_prod(v, v); float y := len(v); Print(x); Print(y);"); (* Vector operations *)
+    (38, "matrix 2,2 m := 2,2 [[1, 2], [3, 4]]; float d := det(m); matrix 2,2 t := transpose(m); if ((d != 0)) then { m := scale((1 / d), t); Print(m); } else { Print(error); };"); (* Combined operations with control flow *)
+    (39, "int x := 10; while ((x > 0)) do { for (i := 0 to x) do { x := (x - 1); Print(x); }; };"); (* Nested while and for *)
+    (40, "matrix 4,4 m := 4,4 [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]]; for (i := 0 to 3) do { m[i,i] := 0; }; Print(m);"); (* Large matrix with diagonal modification *)
 
-    (* 8. Scoping Error *)
-    (8, "if (true) then (int x := 5;) else (Print(y);); x := x - 1;");
-
-    (* 9. Invalid For Loop Bounds *)
-    (9, "for (x := 1 to 3.14) do (Print(x););");
-
-    (* 10. Nested For with Shadowing *)
-    (10, "int x := 0; for (i := 1 to 3) do (int x := i; Print(x);); Print(x);");
-
-    (* 11. Invalid If Condition *)
-    (11, "if (5) then (Print(x);) else (Print(y););");
-
-    (* 12. Matrix Dimension Mismatch *)
-    (12, "matrix 2,2 m := 2,3 [[1, 2, 3], [4, 5, 6]]; Print(m);");
-
-    (* 13. Input with Declaration *)
-    (13, "int x; Input(Enter); Print(x);");
-
-    (* 14. Standalone Input *)
-    (14, "Input(x);");
-
-    (* 15. Mixed Type Arithmetic *)
-    (15, "float x := 5 + 3.14; Print(x);");
-
-    (* 16. While with Scoping *)
-    (16, "int x := 3; while (x > 0) do (int y := x; Print(y); x := x - 1;);");
-
-    (* 17. Invalid While Condition *)
-    (17, "while (5) do (Print(x););");
-
-    (* 18. Vector Index Type Error *)
-    (18, "vector 2 v := 2 [1, 2]; v[true] := 3;");
-
-    (* 19. Multiple Declarations *)
-    (19, "int x := 5; float x := 3.14; Print(x);");
-
-    (* 20. Scale Operation *)
-    (20, "vector 3 v := 3 [1, 2, 3]; v := scale 5 v; Print(v);");
-
-    (* 21. Invalid Scale *)
-    (21, "vector 3 v := 3 [1, 2, 3]; v := scale 2.5 v; Print(v);");
-
-    (* 22. Vector Addition *)
-    (22, "vector 3 v1 := 3 [1, 2, 3]; vector 3 v2 := 3 [4, 5, 6]; vector 3 v3 := addv v1 v2; Print(v3);");
-
-    (* 23. Dot Product *)
-    (23, "vector 3 v1 := 3 [1, 2, 3]; vector 3 v2 := 3 [4, 5, 6]; int d := dot_prod v1 v2; Print(d);");
-
-    (* 24. Matrix Operations *)
-    (24, "matrix 2,2 m := 2,2 [[1, 2], [3, 4]]; matrix 2,2 t := transpose m; Print(t);");
-
-    (* 25. Determinant *)
-    (25, "matrix 2,2 m := 2,2 [[1, 2], [3, 4]]; float d := det m; Print(d);");
-
-    (* 26. Nested Control Flow *)
-    (26, "int x := 0; for (i := 0 to 2) do (if (x < 1) then (x := x + 1; Print(x);) else (Print(done);););");
-
-    (* 27. Syntax Error *)
-    (27, "int x := 5 + ; Print(x);");
-
-    (* 28. Matrix Indexing *)
-    (28, "matrix 2,2 m := 2,2 [[1, 2], [3, 4]]; m[0,1] := 5; Print(m);");
-
-    (* 29. Unary Operator *)
-    (29, "int x := abs (-5); Print(x);");
-
-    (* 30. Complex Scope and Operations *)
-    (30, "int x := 10; if (x > 5) then (vector 3 v := 3 [1, 2, 3]; v := scale 2 v; Print(v);) else (Print(x););");
-
-    (* 29. Unary Operator *)
-    (29, "int x := abs (-5); Print(x);");
-
-    (* 30. Complex Scope and Operations *)
-    (30, "int x := 10; if (x > 5) then (vector 3 v := 3 [1, 2, 3]; v := scale 2 v; Print(v);) else (Print(x););");
-
-    (* 31. Valid Matrix Multiplication *)
-    (31, "matrix 2,3 m1 := 2,3 [[1, 2, 3], [4, 5, 6]]; matrix 3,2 m2 := 3,2 [[1, 2], [3, 4], [5, 6]]; matrix 2,2 m3 := m1 * m2; Print(m3);");
-
-    (* 32. Invalid Matrix Multiplication *)
-    (32, "matrix 2,3 m1 := 2,3 [[1, 2, 3], [4, 5, 6]]; matrix 2,3 m2 := 2,3 [[7, 8, 9], [10, 11, 12]]; matrix 2,3 m3 := m1 * m2; Print(m3);");
-
-    (* 33. Scalar Multiplication *)
-    (33, "int x := 5 * 3; Print(x);");
-
-    (* 34. Mixed Scalar and Matrix Multiplication *)
-    (34, "matrix 2,2 m := 2,2 [[1, 2], [3, 4]]; int x := 5; m := m * m; Print(m);");
-
+    (* New Test Cases for Added Functionalities *)
+    (41, "matrix 3,3 m := 3,3 [[1, 2, 3], [4, 5, 6], [7, 8, 9]]; matrix 2,2 minor_m := minor(m, 1, 1); Print(minor_m);"); (* Minor operation *)
+    (42, "vector 3 v := 3 [1, 2, 3]; float angle_result := angle(v, v); Print(angle_result);"); (* Angle between vectors *)
+    (43, "vector 3 v := 3 [3, 4, 0]; float length := len(v); Print(length);"); (* Vector length *)
+    (44, "vector 4 v := 4 [1, 2, 3, 4]; int dimen := dim(v); Print(dimen);"); (* Vector dimension *)
+    (45, "int x := 16; float sqrt_result := sqrt(x); Print(sqrt_result);"); (* Square root *)
+    (46, "int x := (-5); int abs_result := abs(x); Print(abs_result);"); (* Absolute value *)
+    (47, "matrix 2,2 m := 2,2 [[1.0, 2.0], [3.0, 4.0]]; m[1,0] := 5.2; Print(m);"); (* Logical NOT *)
+    (48, "matrix 2,2 m := 2,2 [[1, 2], [3, 4]]; int x := m[0,1]; Print(x);"); (* Input for scalar *)
+    (49, "vector 3 v := 3 [1.0, 2.0, 3.0]; v[1] := 5.2; Print(v);"); (* Raise exception *)
+    (50, "vector 3 v := 3 [1, 2, 3]; int x := v[0]; Print(x);"); (* Matrix inverse *)
+    (51, "int x := 5;")
   ] in
   List.iter (fun (num, input) -> run_test num input) tests
 
-(* Execute main *)
 let () = main ()

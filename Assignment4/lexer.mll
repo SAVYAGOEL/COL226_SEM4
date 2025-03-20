@@ -8,7 +8,7 @@ let capAlpha = ['A'-'Z']
 let letter = smallAlpha | capAlpha
 let integ = ('0' | (['1'-'9'] digit*))
 let num = ('0' | ('-'? ['1'-'9'] digit*))  
-let posfloat = (integ '.' integ) | (integ '.' digit* ['e' 'E'] ['+' '-']? digit+)
+let posfloat = (integ '.' digit+) | (integ '.' digit* ['e' 'E'] ['+' '-']? digit+)
 let float = ('-'? posfloat) 
 let identifier = letter (letter | digit | '_')*
 let filename = identifier | ""
@@ -21,6 +21,7 @@ rule tokenize = parse
 
     | "Input" space* "(" space* (filename as file) space* ")" { INPUT file }
     | "Print" space* "(" space* (filename as file) space* ")" { PRINT file }
+    | "Raise" space* "(" space* (filename as except) space* ")" { RAISE except }
 
     | "vector" { TYPE_VECTOR }
     | "matrix" { TYPE_MATRIX }
@@ -37,9 +38,9 @@ rule tokenize = parse
 
     | "angle" { ANGLE } | "dim" { DIMENSION } | "scale" { SCALE }
     | "addv" { ADDV } | "dot_prod" { DOTPROD } | "len" { LEN }
-    | "inv" { INV } | "transpose" { TRANSPOSE } | "det" { DETERMINANT }
+    | "inv" { INV } | "transpose" { TRANSPOSE } | "det" { DETERMINANT } | "minor" {MINOR}
 
-    | "+" { PLUS } | "-" { MINUS } | "*" { TIMES } | "/" { DIV } | "abs" { ABS }
+    | "+" { PLUS } | "-" { MINUS } | "*" { TIMES } | "/" { DIV } | "abs" { ABS } | "sqrt" { SQRT }
 
     | "(" { LPAREN } | ")" { RPAREN }
     | "[" { LSQ } | "]" { RSQ } 
@@ -56,7 +57,6 @@ rule tokenize = parse
 
     | integ as n { INT (int_of_string n) }
     | posfloat as f { FLOAT (float_of_string f) }
-
     | identifier as id { VAR id }
 
     | eof { EOF }

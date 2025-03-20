@@ -9,6 +9,7 @@ let parse_error msg =
 
 %token <string> VAR
 %token <string> INPUT PRINT
+%token <string> RAISE
 %token <int> INT
 %token <bool> BOOL
 %token <float> FLOAT
@@ -17,9 +18,9 @@ let parse_error msg =
 %token <int * string> FLOATVECTOR
 %token <int * int * string> INTMATRIX
 %token <int * int * string> FLOATMATRIX
-%token PLUS MINUS TIMES DIV ABS
-%token ANGLE DIMENSION SCALE ADDV DOTPROD LEN INV
-%token TRANSPOSE DETERMINANT
+%token PLUS MINUS TIMES DIV ABS SQRT
+%token ANGLE DIMENSION SCALE ADDV DOTPROD LEN 
+%token TRANSPOSE DETERMINANT INV MINOR
 %token LSQ RSQ LBR RBR LPAREN RPAREN 
 %token EQ NEQ LT GT LEQ GEQ ASSIGN COMMA SEMICOLON
 %token AND OR NOT
@@ -35,9 +36,9 @@ let parse_error msg =
 %left LT GT LEQ GEQ
 %left PLUS MINUS
 %left TIMES DIV
-%right NOT ABS LEN DIMENSION ANGLE
+%right NOT ABS SQRT LEN DIMENSION ANGLE
 %right SCALE ADDV DOTPROD
-%left TRANSPOSE DETERMINANT
+%left TRANSPOSE DETERMINANT INV MINOR
 %left LSQ
 
 %start program
@@ -46,7 +47,7 @@ let parse_error msg =
 %%
 
 program:
-  | seq_stmt { let _ = Ast.typecheck_expr Ast.empty $1 in $1 }
+  | seq_stmt { $1 }
 
 seq_stmt:
   | stmt { $1 }
@@ -57,9 +58,9 @@ stmt:
   | expr ASSIGN expr SEMICOLON { AssignExpr ($1, $3) }
   | INPUT SEMICOLON { Input $1 }
   | PRINT SEMICOLON { Print $1 }
-  | IF LPAREN expr RPAREN THEN LPAREN seq_stmt RPAREN ELSE LPAREN seq_stmt RPAREN SEMICOLON { If ($3, $7, $11) }  (* Required ELSE *)
-  | FOR LPAREN VAR ASSIGN expr TO expr RPAREN DO LPAREN seq_stmt RPAREN SEMICOLON { For ($3, $5, $7, $11) }
-  | WHILE LPAREN expr RPAREN DO LPAREN seq_stmt RPAREN SEMICOLON { While ($3, $7) }
+  | IF LPAREN expr RPAREN THEN LBR seq_stmt RBR ELSE LBR seq_stmt RBR SEMICOLON { If ($3, $7, $11) }  (* Required ELSE *)
+  | FOR LPAREN VAR ASSIGN expr TO expr RPAREN DO LBR seq_stmt RBR SEMICOLON { For ($3, $5, $7, $11) }
+  | WHILE LPAREN expr RPAREN DO LBR seq_stmt RBR SEMICOLON { While ($3, $7) }
   | TYPE_INT VAR SEMICOLON { VarType ("int", $2, None) }
   | TYPE_BOOL VAR SEMICOLON { VarType ("bool", $2, None) }
   | TYPE_FLOAT VAR SEMICOLON { VarType ("float", $2, None) }
@@ -80,9 +81,10 @@ expr:
   | INTMATRIX { let (rows, cols, lit) = $1 in MatLit (IntMat (rows, cols, lit)) }
   | FLOATMATRIX { let (rows, cols, lit) = $1 in MatLit (FloatMat (rows, cols, lit)) }
   | VAR { Var $1 }
+  | RAISE {Raise $1}
   | LPAREN expr RPAREN { $2 }
-  | expr LSQ expr RSQ { Index ($1, $3) }
-  | expr LSQ expr COMMA expr RSQ { IndexMat ($1, $3, $5) }
+  | VAR LSQ expr RSQ { Index (Var $1, $3) }
+  | VAR LSQ expr COMMA expr RSQ { IndexMat (Var $1, $3, $5) }
   | expr PLUS expr { Plus ($1, $3) }
   | expr MINUS expr { Minus ($1, $3) }
   | LPAREN MINUS expr RPAREN { Uminus ($3) }
@@ -96,14 +98,17 @@ expr:
   | expr GT expr { Gt ($1, $3) }
   | expr LEQ expr { Leq ($1, $3) }
   | expr GEQ expr { Geq ($1, $3) }
-  | ABS expr { Abs $2 }
-  | NOT expr { Not $2 }
-  | SCALE expr expr { Scale ($2, $3) }
-  | ADDV expr expr { AddV ($2, $3) }
-  | DOTPROD expr expr { DotProd ($2, $3) }
-  | ANGLE expr expr { Angle ($2, $3) }
-  | LEN expr { Len $2 }
-  | DIMENSION expr { Dimension $2 }
-  | TRANSPOSE expr { Transpose $2 }
-  | DETERMINANT expr { Determinant $2 }
+  | ABS LPAREN expr RPAREN { Abs $3 }
+  | NOT LPAREN expr RPAREN { Not $3 }
+  | SQRT LPAREN expr RPAREN { Sqrt $3 }
+  | SCALE LPAREN expr COMMA expr RPAREN { Scale ($3, $5) }
+  | ADDV LPAREN expr COMMA expr RPAREN { AddV ($3, $5) }
+  | DOTPROD LPAREN expr COMMA expr RPAREN { DotProd ($3, $5) }
+  | ANGLE LPAREN expr COMMA expr RPAREN { Angle ($3, $5) }
+  | LEN LPAREN expr RPAREN { Len $3 }
+  | DIMENSION LPAREN expr RPAREN { Dimension $3 }
+  | TRANSPOSE LPAREN expr RPAREN { Transpose $3 }
+  | DETERMINANT LPAREN expr RPAREN { Determinant $3 }
+  | INV LPAREN expr RPAREN { Inv $3 }
+  | MINOR LPAREN expr COMMA expr COMMA expr RPAREN{ Minor ($3, $5, $7) }
 %%
