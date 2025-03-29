@@ -58,24 +58,77 @@ and expr =
   | While of expr * expr
   | Print of string
   | Input of string
-  | VarType of string * string * (int * int option) option
+  | VarType of string * string * (int * int option) option * string option
 
 type ast = expr
 
 module Env = Map.Make(String)
 type env = typ Env.t
 
+
+(*make a typ to string function to use for debugging in print statements: *)
+let rec string_of_typ = function
+  | TInt -> "int"
+  | TFloat -> "float"
+  | TBool -> "bool"
+  | TVector (n, t) -> Printf.sprintf "vector(%d, %s)" n (string_of_typ t)
+  | TMatrix (r, c, t) -> Printf.sprintf "matrix(%d, %d, %s)" r c (string_of_typ t)
+  | TUnit -> "unit"
+
+let rec string_of_expr = function
+  | IntLit i -> Printf.sprintf "IntLit(%d)" i
+  | FloatLit f -> Printf.sprintf "FloatLit(%f)" f
+  | BoolLit b -> Printf.sprintf "BoolLit(%b)" b
+  | VecLit (IntVec (n, s)) -> Printf.sprintf "VecLit(IntVec(%d, %s))" n s
+  | VecLit (FloatVec (n, s)) -> Printf.sprintf "VecLit(FloatVec(%d, %s))" n s
+  | MatLit (IntMat (r, c, s)) -> Printf.sprintf "MatLit(IntMat(%d, %d, %s))" r c s
+  | MatLit (FloatMat (r, c, s)) -> Printf.sprintf "MatLit(FloatMat(%d, %d, %s))" r c s
+  | Var v -> Printf.sprintf "Var(%s)" v
+  | Raise s -> Printf.sprintf "Raise(%s)" s
+  | Plus (e1, e2) -> Printf.sprintf "Plus(%s, %s)" (string_of_expr e1) (string_of_expr e2)
+  | Minus (e1, e2) -> Printf.sprintf "Minus(%s, %s)" (string_of_expr e1) (string_of_expr e2)
+  | Uminus e -> Printf.sprintf "Uminus(%s)" (string_of_expr e)
+  | Times (e1, e2) -> Printf.sprintf "Times(%s, %s)" (string_of_expr e1) (string_of_expr e2)
+  | Div (e1, e2) -> Printf.sprintf "Div(%s, %s)" (string_of_expr e1) (string_of_expr e2)
+  | And (e1, e2) -> Printf.sprintf "And(%s, %s)" (string_of_expr e1) (string_of_expr e2)
+  | Or (e1, e2) -> Printf.sprintf "Or(%s, %s)" (string_of_expr e1) (string_of_expr e2)
+  | Eq (e1, e2) -> Printf.sprintf "Eq(%s, %s)" (string_of_expr e1) (string_of_expr e2)
+  | Neq (e1, e2) -> Printf.sprintf "Neq(%s, %s)" (string_of_expr e1) (string_of_expr e2)
+  | Lt (e1, e2) -> Printf.sprintf "Lt(%s, %s)" (string_of_expr e1) (string_of_expr e2)
+  | Gt (e1, e2) -> Printf.sprintf "Gt(%s, %s)" (string_of_expr e1) (string_of_expr e2)
+  | Leq (e1, e2) -> Printf.sprintf "Leq(%s, %s)" (string_of_expr e1) (string_of_expr e2)
+  | Geq (e1, e2) -> Printf.sprintf "Geq(%s, %s)" (string_of_expr e1) (string_of_expr e2)
+  | Not e -> Printf.sprintf "Not(%s)" (string_of_expr e)
+  | Abs e -> Printf.sprintf "Abs(%s)" (string_of_expr e)
+  | Sqrt e -> Printf.sprintf "Sqrt(%s)" (string_of_expr e)
+  | Scale (scalar, vec) -> Printf.sprintf "Scale(%s, %s)" (string_of_expr scalar) (string_of_expr vec)
+  | AddV (v1, v2) -> Printf.sprintf "AddV(%s, %s)" (string_of_expr v1) (string_of_expr v2)
+  | DotProd (v1, v2) -> Printf.sprintf "DotProd(%s, %s)" (string_of_expr v1) (string_of_expr v2)
+  | Angle (v1, v2) -> Printf.sprintf "Angle(%s, %s)" (string_of_expr v1) (string_of_expr v2)
+  | Len v -> Printf.sprintf "Len(%s)" (string_of_expr v)
+  | Index (v, i) -> Printf.sprintf "Index(%s, %s)" (string_of_expr v) (string_of_expr i)
+  | IndexMat (m, i, j) -> Printf.sprintf "IndexMat(%s, %s, %s)" (string_of_expr m) (string_of_expr i) (string_of_expr j)
+  | AssignExpr (lhs, rhs) -> Printf.sprintf "AssignExpr(%s, %s)" (string_of_expr lhs) (string_of_expr rhs)
+  | Seq (e1, e2) -> Printf.sprintf "Seq(%s, %s)" (string_of_expr e1) (string_of_expr e2)
+  | If (cond, thn, els) -> Printf.sprintf "If(%s, %s, %s)" (string_of_expr cond) (string_of_expr thn) (string_of_expr els)
+  | For (v, start, stop, body) -> Printf.sprintf "For(%s, %s, %s, %s)" v (string_of_expr start) (string_of_expr stop) (string_of_expr body)
+  | While (cond, body) -> Printf.sprintf "While(%s, %s)" (string_of_expr cond) (string_of_expr body)
+  | Print s -> Printf.sprintf "Print(%s)" s
+  | Input s -> Printf.sprintf "Input(%s)" s
+  | _ -> "Other expressions not implemented for string_of_expr"
 let empty = Env.empty
 
 exception TypeError of string
 
-let typ_of_vartype typ_name dims =
-  match typ_name, dims with
-  | "int", None -> TInt
-  | "float", None -> TFloat
-  | "bool", None -> TBool
-  | "vector", Some (n, None) -> TVector (n, TInt)
-  | "matrix", Some (r, Some c) -> TMatrix (r, c, TInt)
+let typ_of_vartype typ_name dims third =
+  match typ_name, dims, third with
+  | "int", None, None -> TInt
+  | "float", None, None -> TFloat
+  | "bool", None, None -> TBool
+  | "vector", Some (n, None), Some ("int") -> TVector (n, TInt)
+  | "vector", Some (n, None), Some ("float") -> TVector (n, TFloat)
+  | "matrix", Some (r, Some c), Some ("int")  -> TMatrix (r, c, TInt)
+  | "matrix", Some (r, Some c), Some ("float")  -> TMatrix (r, c, TFloat)
   | _ -> raise (TypeError ("Invalid type declaration: " ^ typ_name))
 
 let check_compatible t1 t2 =
@@ -84,6 +137,15 @@ let check_compatible t1 t2 =
   | TVector (n1, et1), TVector (n2, et2) -> n1 = n2 && et1 = et2
   | TMatrix (r1, c1, et1), TMatrix (r2, c2, et2) -> r1 = r2 && c1 = c2 && et1 = et2
   | TUnit, TUnit -> true
+  | _ -> false
+
+let check_compatible_assign t1 t2 =
+  match t1, t2 with
+  | TInt, TInt | TFloat, TFloat | TBool, TBool -> true
+  | TVector (n1, et1), TVector (n2, et2) -> n1 = n2 && et1 = et2
+  | TMatrix (r1, c1, et1), TMatrix (r2, c2, et2) -> r1 = r2 && c1 = c2 && et1 = et2
+  | TUnit, TUnit -> true
+  | _, TUnit -> true
   | _ -> false
 
 let check_compatible_arith t1 t2 =
@@ -113,7 +175,7 @@ let rec typecheck_expr env = function
   | VecLit (FloatVec (n, _)) -> (TVector (n, TFloat), env)
   | MatLit (IntMat (r, c, _)) -> (TMatrix (r, c, TInt), env)
   | MatLit (FloatMat (r, c, _)) -> (TMatrix (r, c, TFloat), env)
-  | Var v ->
+  | Var v -> 
       (match Env.find_opt v env with
        | Some t -> (t, env)
        | None -> raise (TypeError ("Undefined variable: " ^ v)))
@@ -242,27 +304,31 @@ let rec typecheck_expr env = function
   | AssignExpr (lhs, rhs) ->
     let tlhs = typecheck_lvalue env lhs in
     let (trhs, env') = typecheck_expr env rhs in
+    (* Printf.printf "LHS is : %s\n " (string_of_expr lhs); *)
     (match lhs with
-      | Var v ->
-          if check_compatible tlhs trhs then
+      | Index (v, i) -> 
+        let (tv, _) = typecheck_expr env v in
+        (match tv with
+        | TVector (_, et) -> 
+            if check_compatible_assign et trhs then (TUnit, env')
+            else raise (TypeError "Type mismatch in vector indexed assignment")
+        | _ -> raise (TypeError "Vector indexing in assignment requires vector"))
+
+      | Var v -> 
+        (* Printf.printf "type of variable %s is : %s and type of rhs is : %s\n" v (string_of_typ tlhs) (string_of_typ trhs); *)
+          if check_compatible_assign tlhs trhs then
             (match rhs, trhs with
-            | Input _, _ -> (TUnit, Env.add v tlhs env')  (* Input can assign any compatible type *)
+            | Input _, _ ->  (TUnit, Env.add v tlhs env')  (* Input can assign any compatible type *)
             | _, TVector (n, et) when tlhs = TVector (n, et) -> (TUnit, Env.add v (TVector (n, et)) env')
             | _, TMatrix (r, c, et) when tlhs = TMatrix (r, c, et) -> (TUnit, Env.add v (TMatrix (r, c, et)) env')
             | _, t -> (TUnit, Env.add v t env'))  (* Update env with rhs type *)
-          else raise (TypeError ("Type hello mismatch in assignment to variable " ^ v))
-      | Index (v, i) ->
-          let (tv, _) = typecheck_expr env v in
-          (match tv with
-          | TVector (_, et) ->
-              if check_compatible et trhs then (TUnit, env')
-              else raise (TypeError "Type mismatch in vector indexed assignment")
-          | _ -> raise (TypeError "Vector indexing in assignment requires vector"))
+          else raise (TypeError ("Type mismatch in assignment to variable " ^ v))
+      
       | IndexMat (m, i, j) ->
           let (tm, _) = typecheck_expr env m in
           (match tm with
           | TMatrix (_, _, et) ->
-              if check_compatible et trhs then (TUnit, env')
+              if check_compatible_assign et trhs then (TUnit, env')
               else raise (TypeError "Type mismatch in matrix indexed assignment")
           | _ -> raise (TypeError "Matrix indexing in assignment requires matrix"))
       | _ -> raise (TypeError "Left-hand side of assignment must be a variable or indexed expression"))
@@ -295,17 +361,22 @@ let rec typecheck_expr env = function
   | Print s -> (TUnit, env)
   | Input s -> (TUnit, env)
   | Raise s -> (TUnit, env)
-  | VarType (typ_name, v, dims) ->
-      let t = typ_of_vartype typ_name dims in
+  | VarType (typ_name, v, dims, third) ->
+      let t = typ_of_vartype typ_name dims third in
       let env' = Env.add v t env in
       (TUnit, env')
 
 and typecheck_lvalue env = function
   | Var v ->
+    (*add debug print statements here:*)
+    (* Printf.printf "Checking variable: %s : " v; *)
       (match Env.find_opt v env with
        | Some t -> t
        | None -> raise (TypeError ("Undefined variable in assignment: " ^ v)))
   | Index (v, i) ->
+      (*add debug print statements here:*)
+      (* Printf.printf "Checking index: %s\n" (string_of_int (match i with IntLit n -> n | _ -> 0)); *)
+      (* Check the type of the vector and index *)
       let (tv, env1) = typecheck_expr env v in
       let (ti, _) = typecheck_expr env1 i in
       (match tv, ti with
