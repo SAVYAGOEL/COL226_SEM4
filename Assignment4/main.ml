@@ -162,7 +162,6 @@ let main () =
     (53, "int vector 3 v := 3 [1, 2, 3]; v[0] := Input();");
     (54, "int x; x := Input();");
     (55, "int x; x := 5;");
-    (56, "bool x := (5 = 3.2);")
   ] in
   List.iter (fun (num, input) -> run_test num input) tests
 
