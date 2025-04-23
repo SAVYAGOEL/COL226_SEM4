@@ -246,6 +246,11 @@ let rec eval (rho : env) (e : expr) : value * env =
              raise (Eval_error "Matrix addition dimension mismatch");
            let result = List.map2 (fun row1 row2 -> List.map2 (+) row1 row2) m1 m2 in
            (VMatInt result, rho2)
+       | VMatFloat m1, VMatFloat m2 -> 
+          if List.length m1 <> List.length m2 || List.length (List.hd m1) <> List.length (List.hd m2) then
+            raise (Eval_error "Matrix subtraction dimension mismatch");
+          let result = List.map2 (fun row1 row2 -> List.map2 (+.) row1 row2) m1 m2 in
+          (VMatFloat result, rho2)
        | VVecInt v1, VVecInt v2 ->
            if List.length v1 <> List.length v2 then
              raise (Eval_error "Vector addition dimension mismatch");
