@@ -1,4 +1,3 @@
-open Array
 
 module Term = struct 
   type variable = string
@@ -36,8 +35,8 @@ module Term = struct
     let rec check_term t' = match t' with
       | V _ -> true
       | Node (symbol, terms) ->
-        let check_curr_node = ((length terms) = (get_arity symbol) && (get_arity symbol) = (get_symbol_arity s symbol)) in
-        let check_children = fold_left (fun acc term -> acc && check_term term) true terms in
+        let check_curr_node = ((Array.length terms) = (get_arity symbol) && (get_arity symbol) = (get_symbol_arity s symbol)) in
+        let check_children = Array.fold_left (fun acc term -> acc && check_term term) true terms in
         check_curr_node && check_children
     in
     check_term t
@@ -48,7 +47,7 @@ module Term = struct
     | Node (symbol, terms) ->
       if snd symbol = 0 then 0
       else
-        fold_left max 0 (map ht terms) + 1
+        Array.fold_left max 0 (Array.map ht terms) + 1
 
   let rec size (t:term) : int =
     match t with
@@ -56,13 +55,13 @@ module Term = struct
     | Node (symbol, terms) ->
       if snd symbol = 0 then 1
       else
-        fold_left (+) 1 (map size terms)
+        Array.fold_left (+) 1 (Array.map size terms)
 
   let vars (t:term) : variable list =
     let rec vars' t' acc = match t' with
       | V v -> if List.mem v acc then acc else v::acc
       | Node (_, terms) ->
-        fold_left (fun acc term -> vars' term acc) acc terms
+        Array.fold_left (fun acc term -> vars' term acc) acc terms
     in
     vars' t []
 
@@ -83,7 +82,7 @@ module Term = struct
         (try Hashtbl.find s v 
          with Not_found -> V v)  
     | Node (symbol, terms) ->
-        let new_terms = map (subst s) terms in
+        let new_terms = Array.map (subst s) terms in
         Node (symbol, new_terms)
 
  
@@ -135,9 +134,9 @@ module Term = struct
           else
             try
               let rec iterate_array i acc' =
-                if i = length terms1 && i = length terms2 then 
+                if i = Array.length terms1 && i = Array.length terms2 then 
                   acc'
-                else if (i = length terms1) || (i = length terms2) then 
+                else if (i = Array.length terms1) || (i = Array.length terms2) then 
                   raise (NOT_UNIFIABLE "terms do not match")
                 else
                   let t1'' = subst acc' (terms1.(i)) in
@@ -158,7 +157,7 @@ module Term = struct
       | (_, []) -> new_term
       | (V _, _::_) -> raise (NOT_EDITABLE "Reached a variable and position not empty")
       | (Node (sym, terms), p::ps) ->
-        if p < 0 || p >= length terms then raise (NOT_EDITABLE "Invalid position")
+        if p < 0 || p >= Array.length terms then raise (NOT_EDITABLE "Invalid position")
         else
           let new_terms = Array.copy terms in
           new_terms.(p) <- edit2 terms.(p) ps;
@@ -206,7 +205,7 @@ let rec string_of_term t =
   match t with
   | V var -> var
   | Node ((name, _), terms) ->
-      if length terms = 0 then
+      if Array.length terms = 0 then
         name
       else
         name ^ "(" ^ 
